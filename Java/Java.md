@@ -461,7 +461,29 @@ new String("hello")会在堆内存中创建一个实例，开辟新的内存空�
 >https://blog.csdn.net/u013682953/article/details/73699796
 >
 >https://blog.csdn.net/piyongduo3393/article/details/85225294
->
+
+**举例说明：LinkedList**
+
+>https://blog.csdn.net/qedgbmwyz/article/details/80108618
+
+~~~java
+public class LinkedList<E>
+     extends AbstractSequentialList<E>
+     implements List<E>, Deque<E>, Cloneable, java.io.Serializable
+~~~
+
+LinkedList 是一个继承于AbstractSequentialList的双向链表。它也可以被当作堆栈、队列或双端队列进行操作。
+LinkedList 实现 List 接口，能对它进行队列操作。
+LinkedList 实现 Deque 接口，即能将LinkedList当作双端队列使用。
+LinkedList 实现了Cloneable接口，即覆盖了函数clone()，能克隆。
+LinkedList 实现java.io.Serializable接口，这意味着LinkedList支持序列化，能通过序列化去传输。
+LinkedList 是非同步的。
+
+**为什么要继承自AbstractSequentialList ?**
+
+AbstractSequentialList 实现了get(int index)、set(int index, E element)、add(int index, E element) 和 remove(int index)这些骨干性函数。降低了List接口的复杂度。这些接口都是随机访问List的，LinkedList是双向链表；既然它继承于AbstractSequentialList，就相当于已经实现了“get(int index)这些接口”。
+
+此外，我们若需要通过AbstractSequentialList自己实现一个列表，只需要扩展此类，并提供 listIterator() 和 size() 方法的实现即可。若要实现不可修改的列表，则需要实现列表迭代器的 hasNext、next、hasPrevious、previous 和 index 方法即可。
 
 #### 10. final finally finalize 区别及用法?
 
@@ -475,6 +497,20 @@ new String("hello")会在堆内存中创建一个实例，开辟新的内存空�
 链接：https://www.jianshu.com/p/afaf54b9632e
 
 https://baijiahao.baidu.com/s?id=1655232869611610920&wfr=spider&for=pc
+
+**【拓展】finalize的原理：**
+
+![img](https://pics5.baidu.com/feed/1e30e924b899a9010d34c78331bb0d7d0208f532.jpeg?token=cc6b19d8b9ecf5e0697042b70da81e1d&s=0D40EC12E18768EA584DA0CE0200D0A1)
+
+1）对象在初始化的过程中会判断是否重写了finalize，方法是判断两个字段标志has_finalizer_flag和RegisterFinalizersAtInit。
+
+2）如果重写了finalize，那就把当前对象注册到FinalizerThread的ReferenceQueue队列中。注册之后的对象就叫做Finalizer。方法是调用register_finalizer函数。此时java虚拟机一看当前有这个对象的引用，于是就不进行垃圾回收了。
+
+3）对象开始被调用，FinalizerThread线程负责从ReferenceQueue队列中获取Finalizer对象。开始执行finalize方法，在执行之前，这个对象一直在堆中。
+
+4）对象执行完毕之后，将这个Finalizer对象从队列中移除，java虚拟机一看对象没有引用了，就进行垃圾回收了。
+
+这就是整个过程。不过在这里我们主要看的是finalize方法对垃圾回收的影响，其实就是在第三步，也就是这个对象含有finalize，进入了队列但一直没有被调用的这段时间，会一直占用内存。
 
 #### 11. this和super的区别
 
@@ -8059,3 +8095,4 @@ JVM调优工具
   \2. 线程数量不能减少的情况下，通过-Xss减小单个线程大小。以便能生产更多的线程。
 
 https://www.iteye.com/blog/pengjiaheng-552456yua
+
