@@ -502,7 +502,7 @@ https://baijiahao.baidu.com/s?id=1655232869611610920&wfr=spider&for=pc
 
 ![img](https://pics5.baidu.com/feed/1e30e924b899a9010d34c78331bb0d7d0208f532.jpeg?token=cc6b19d8b9ecf5e0697042b70da81e1d&s=0D40EC12E18768EA584DA0CE0200D0A1)
 
-1）对象在初始化的过程中会判断是否重写了finalize，方法是判断两个字段标志has_finalizer_flag和RegisterFinalizersAtInit。
+1）对象在初始化的过程中会判断是否重写了**finalize**，方法是判断两个字段标志has_finalizer_flag和RegisterFinalizersAtInit。
 
 2）如果重写了finalize，那就把当前对象注册到FinalizerThread的ReferenceQueue队列中。注册之后的对象就叫做Finalizer。方法是调用register_finalizer函数。此时java虚拟机一看当前有这个对象的引用，于是就不进行垃圾回收了。
 
@@ -511,6 +511,8 @@ https://baijiahao.baidu.com/s?id=1655232869611610920&wfr=spider&for=pc
 4）对象执行完毕之后，将这个Finalizer对象从队列中移除，java虚拟机一看对象没有引用了，就进行垃圾回收了。
 
 这就是整个过程。不过在这里我们主要看的是finalize方法对垃圾回收的影响，其实就是在第三步，也就是这个对象含有finalize，进入了队列但一直没有被调用的这段时间，会一直占用内存。
+
+> finalize流程：**当对象变成(GC Roots)不可达时，GC会判断该对象是否覆盖了finalize方法，若未覆盖，则直接将其回收。否则，若对象未执行过finalize方法，将其放入F-Queue队列，由一低优先级线程执行该队列中对象的finalize方法。执行finalize方法完毕后，GC会再次判断该对象是否可达，若不可达，则进行回收，否则，对象“复活”。**
 
 #### 11. this和super的区别
 
@@ -738,7 +740,7 @@ Java 对象 JVM 退出时会全部销毁，如果需要将对象及状态持久�
 1. **registerNatives()**
    这是一个native方法，说明这个方法的实现不是在java中，而是由C/C++实现，并编译成.dll文件，由java调用。registerNatives主要是将C/C++的方法映射到java中的native方法，实现方法命名的解耦。了解即可，知道是注册，细节暂时不研究。
 2. **clone方法**
-   clone方法是native方法，native方法的效率远高于非native方法，因此还是使用clone方法去做对象的拷贝而不是使用new的方法，copy。此方法被protected修饰。这就意味着想要使用，必须继承它（废话，默认都是继承的）。然后重载它，如果想要使得其他类能使用这个类，需要设置成public。返回值是一个Object对象，所以要强制转换才行。
+   clone方法是native方法，native方法的效率远高于非native方法，因此还是使用clone方法去做对象的拷贝而不是使用new的方法，copy。**此方法被protected修饰。这就意味着想要使用，必须继承它**（废话，默认都是继承的）。然后重载它，如果想要使得其他类能使用这个类，需要设置成public。**返回值是一个Object对象**，所以要强制转换才行。
    保护方法，实现对象的浅复制，只有实现了 Cloneable 接口才可以调用该方法，否则抛出 CloneNotSupportedException 异常。
 3. **getClass 方法**
    final 方法，获得运行时类的类型。
@@ -765,11 +767,11 @@ Java 对象 JVM 退出时会全部销毁，如果需要将对象及状态持久�
 
 #### 22 创建对象的四种方式
 
-1.使用new创建对象
+1.使用**new**创建对象
 
 　　使用new关键字创建对象应该是最常见的一种方式，但我们应该知道，使用new创建对象会增加耦合度。无论使用什么框架，都要减少new的使用以降低耦合度。
 
-```
+```java
 package yunche.test;
 
 /**
@@ -788,7 +790,7 @@ public class Hello
 }
 ```
 
-```
+```java
 package yunche.test;
 
 /**
@@ -815,7 +817,7 @@ public class NewClass
 
  使用Class类的newInstance方法，Hello类的代码不变，NewClass类的代码如下：
 
-```
+```java
 package yunche.test;
 
 /**
@@ -853,7 +855,7 @@ public class NewClass
 
  使用Constructor类的newInstance方法
 
-```
+```java
 package yunche.test;
 
 import java.lang.reflect.Constructor;
@@ -908,7 +910,7 @@ public class NewClass
 
 　　clone时，需要已经有一个分配了内存的源对象，创建新对象时，首先应该分配一个和源对象一样大的内存空间。要调用clone方法需要实现*Cloneable*接口，由于clone方法是protected的，所以修改Hello类。
 
-```
+```java
 package yunche.test;
 
 /**
@@ -941,7 +943,7 @@ public class Hello implements Cloneable
 }
 ```
 
-**4.采用序列化机制**
+**4.采用反序列化机制**
 
 　　使用序列化时，要实现实现Serializable接口，将一个对象序列化到磁盘上，而采用反序列化可以将磁盘上的对象信息转化到内存中。
 
@@ -996,8 +998,6 @@ public class Serialize
 ```
 
 #### 23 构造方法
-
-
 
 构造方法是一种特殊的方法，具有以下特点。
 （1）构造方法的**方法名必须与类名**相同。
@@ -1381,7 +1381,7 @@ Class c = Class.forName(“cn.ywq.Demo”);
 
 **动态代理**：在运行期间使用动态生成字节码形式，动态创建代理类。使用的工具有 jdkproxy、cglibproxy 等。
 
-动态代理的实现方式是借助java.lang.Reflect.Proxy进行反射实现的，其步骤如下：
+动态代理的实现方式是借助java.lang.Reflect.**Proxy**进行反射实现的，其步骤如下：
  a、编写一个委托类接口，对应的静态代理的Subject接口
  b、编写一个委托类接口的实现类，对应的是静态代理的RealSubject
  c、创建动态代理类方法调用处理程序，实现InvocationHandler接口，并重写invoke方法
@@ -1457,7 +1457,7 @@ https://cloud.tencent.com/developer/article/1524189
 4. getAdvicesAndAdvisorsForBean核心逻辑如下 a. 找所有增强器，也就是所有@Aspect注解的Bean b. 找匹配的增强器，也就是根据@Before，@After等注解上的表达式，与当前bean进行匹配，暴露匹配上的。 c. 对匹配的增强器进行扩展和排序，就是按照@Order或者PriorityOrdered的getOrder的数据值进行排序，越小的越靠前。
 5. createProxy有2种创建方法，JDK代理或CGLIB a. 如果设置了proxyTargetClass=true，一定是CGLIB代理 b. 如果proxyTargetClass=false，目标对象实现了接口，走JDK代理 c. 如果没有实现接口，走CGLIB代理
 
-##### [8] 面试相关问题
+##### [8] 面试
 
 **1. 解释一下代理？**
 
