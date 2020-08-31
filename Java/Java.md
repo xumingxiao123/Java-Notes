@@ -7156,7 +7156,7 @@ https://blog.csdn.net/qq_38262266/article/details/107208357?utm_medium=distribut
 
 **3）OOM的类型**
 
- 
+
 
 JVM内存模型：
 
@@ -7382,6 +7382,8 @@ finalize的原理其实很简单，在这里简要的梳理一下：
 
 这就是整个过程。不过在这里我们主要看的是finalize方法对垃圾回收的影响，其实就是在第三步，也就是这个对象含有finalize，进入了队列但一直没有被调用的这段时间，会一直占用内存。
 
+
+
 **为什么要舍弃finalize**
 
 **第一：调用时机的不确定性**
@@ -7403,68 +7405,20 @@ finalize的原理其实很简单，在这里简要的梳理一下：
 ##### [4]  详细说下四种引用？
 
 **强引用**：普通存在， P p = new P()，只要强引用存在，垃圾收集器**永远不会**回收掉被引用的对象。默认情况下，对象采用的均为强引用。
+
+> 使用场景：例如数组
+
 **软引用**：通过SoftReference类来实现软引用，在**内存不足**的时候会将这些软引用回收掉。软引用是Java中提供的一种比较适合于缓存场景的应用.
+
+> 使用场景：创建缓存
+
 **弱引用**：通过WeakReference类来实现弱引用，**每次垃圾回收**的时候肯定会回收掉弱引用。
+
+> 使用场景：WeakHashMap类中的key
+
 **虚引用**：也称为幽灵引用或者幻影引用，通过PhantomReference类实现。设置虚引用只是为了对象被回收时候收到一个**系统通知**。
 
-https://www.cnblogs.com/shoshana-kong/p/10575781.html
-
->## 强引用-FinalReference
->
->介绍： 
->**强引用是平常中使用最多的引用，强引用在程序内存不足（OOM）的时候也不会被回收，使用方式：**
->
->```
->String str = new String("str");
->```
->
->这个str就是强引用。 
->可用场景： 
->地球人都知道，但是我讲不出来。
->
->## 软引用-SoftReference
->
->介绍： 
->软引用在程序内存不足时，会被回收，使用方式：
->
->```
->// 注意：wrf这个引用也是强引用，它是指向SoftReference这个对象的，
->// 这里的软引用指的是指向new String("str")的引用，也就是SoftReference类中T
->SoftReference<String> wrf = new SoftReference<String>(new String("str"));
->```
->
->可用场景： 
->**创建缓存的时候，创建的对象放进缓存中，当内存不足时，JVM就会回收早先创建的对象。PS：图片编辑器，[视频编辑器](https://www.baidu.com/s?wd=视频编辑器&tn=24004469_oem_dg&rsv_dl=gh_pl_sl_csd)之类的软件可以使用这种思路。** 
->**软引用使用例子传送门：https://www.cnblogs.com/mjorcen/p/3968018.html**
->
->## 弱引用-WeakReference
->
->介绍： 
->**弱引用就是只要JVM垃圾回收器发现了它，就会将之回收，使用方式：**
->
->```
->WeakReference<String> wrf = new WeakReference<String>(str);
->```
->
->**可用场景：** 
->**Java源码中的`java.util.WeakHashMap`中的`key`就是使用弱引用，我的理解就是，一旦我不需要某个引用，JVM会自动帮我处理它，这样我就不需要做其它操作。** 
->弱引用使用例子传送门：http://www.importnew.com/21206.html
->
->## 虚引用-PhantomReference
->
->介绍： 
->虚引用的回收机制跟弱引用差不多，但是它被回收之前，会被放入`ReferenceQueue`中。注意哦，其它引用是被JVM回收后才被传入`ReferenceQueue`中的。由于这个机制，所以虚引用大多被用于引用销毁前的处理工作。还有就是，虚引用创建的时候，必须带有`ReferenceQueue`，使用例子：
->
->```
->PhantomReference<String> prf = new PhantomReference<String>(new String("str"), new ReferenceQueue<>());
->```
->
->可用场景： 
->**对象销毁前的一些操作，比如说资源释放等。**`Object.finalize()`虽然也可以做这类动作，但是这个方式即不安全又低效(传送门：http://blog.csdn.net/aitangyong/article/details/39450341)，so。
->
->## 强调
->
->上诉所说的几类引用，都是指对象本身的引用，而不是指`Reference<T>`的四个子类的引用(`SoftReference<T>`等)。
+> 使用场景：用于对象销毁前的一些操作，比如说资源释放等
 
 ##### [5]  常用的垃圾收集算法有哪些？
 
