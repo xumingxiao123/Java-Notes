@@ -4250,12 +4250,6 @@ JMM可以通过happens-before关系向程序员提供跨线程的**内存可见�
 
 2）两个操作之间存在happens-before关系，并不意味着Java平台的具体实现必须要按照happens-before关系指定的顺序来执行。如果重排序之后的执行结果，与按happens-before关系来执行的结果一致，那么这种重排序并不非法（也就是说，JMM允许这种重排序）。
 
-**下面来比较一下as-if-serial和happens-before：**
-
-1. as-if-serial语义保证单线程内程序的执行结果不被改变，happens-before关系保证正确同步的多线程程序的执行结果不被改变。
-2. as-if-serial语义给编写单线程程序的程序员创造了一个幻境：单线程程序是按程序的顺序来执行的。happens-before关系给编写正确同步的多线程程序的程序员创造了一个幻境：正确同步的多线程程序是按happens-before指定的顺序来执行的。
-3. as-if-serial语义和happens-before这么做的目的，都是为了在不改变程序执行结果的前提下，尽可能地提高程序执行的并行度
-
 #### 9 [sleep()和wait()的区别](https://www.cnblogs.com/lyx210019/p/9427146.html)
 
 **一. 查看API**
@@ -4343,8 +4337,6 @@ public class Storage {
     }
 }
 ~~~
-
-
 
 ### 【同步的方式】
 
