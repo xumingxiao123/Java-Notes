@@ -3060,16 +3060,14 @@ dump堆内存信息后，需要对dump出的文件进行分析，从而找到OOM
 
 2. **可达性分析**：root搜索方法的基本思路就是通过一系列可以做为root的对象作为起始点，从这些节点开始向下搜索。当一个对象到root节点没有任何引用链接时，则证明此对象是可以被回收的。
 
- >1. **什么对象会被认为是root对象?**
+ >1. **什么对象会被认为是root对象? [link](https://blog.csdn.net/weixin_38007185/article/details/108093716?utm_medium=distribute.pc_relevant.none-task-blog-BlogCommendFromMachineLearnPai2-1.channel_param&depth_1-utm_source=distribute.pc_relevant.none-task-blog-BlogCommendFromMachineLearnPai2-1.channel_param)**
  >
- >>* jvm运行时方法区类静态变量(static)引用的对象
- >>* jvm运行时方法区常量引用的对象
- >>* jvm当前运行线程中的虚拟机栈变量表引用的对象
- >>* 本地方法栈中(jni)引用的对象
- >>* 被同步锁（synchronized）持有的对象
- >>* 虚拟机内部的引用
+ >>- 虚拟机栈（栈帧中的本地变量表）中引用的对象
+ >>- 本地方法栈中 JNI（即一般说的 Native 方法）引用的对象
+ >>- 方法区中类静态属性引用的对象
+ >>- 方法区中常量引用的对象
  >>
- >>**总之一句话，GC Root 对象一定是影响程序运行的对象。**
+ >>**便于记忆，称他为两栈两方法，总之一句话，GC Root 对象一定是影响程序运行的对象。**
  >
  >2. **何为循环引用**?
  >
