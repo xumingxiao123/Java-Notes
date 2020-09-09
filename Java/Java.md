@@ -2935,6 +2935,294 @@ dump堆内存信息后，需要对dump出的文件进行分析，从而找到OOM
 
 注意：因为JVM规范没有对dump出的文件的格式进行定义，所以不同的虚拟机产生的dump文件并不是一样的。在分析时，需要针对不同的虚拟机的输出采用不同的分析工具（当然，有的工具可以兼容多个虚拟机的格式）。IBM HeapAnalyzer也是分析heap的一个常用的工具。
 
+#### 【<Java对象的生命周期>】
+
+在Java中，对象的生命周期包含下面几个阶段：
+
+\1.   创建阶段(Created)
+
+\2.   应用阶段(In Use)
+
+\3.   不可见阶段(Invisible)
+
+\4.   不可达阶段(Unreachable)
+
+\5.   收集阶段(Collected)
+
+\6.   终结阶段(Finalized)
+
+\7.   对象空间重分配阶段(De-allocated)
+
+ ![img](http://img.blog.csdn.net/20140805161851452?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc29kaW5v/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast)
+
+
+
+图1. JavaObject Life Cycle
+
+##### [1] 创建阶段(Created)
+
+在创建阶段系统通过以下的几个步骤来完毕对象的创建过程。
+
+
+
+- l 为对象分配存储空间
+- l 開始构造对象
+- l 从超类到子类对static成员进行初始化
+- l 超类成员变量按顺序初始化，递归调用超类的构造方法
+- l 子类成员变量按顺序初始化，子类构造方法调用
+
+
+
+一旦对象被创建，并被分派给某些变量赋值，这个对象的状态就切换到了应用阶段
+
+##### [2] 应用阶段(In Use)
+
+对象至少被一个强引用持有着。
+
+##### [3] 不可见阶段(Invisible)
+
+当一个对象处于不可见阶段时，说明程序本身不再持有该对象的不论什么强引用，尽管该这些引用仍然是存在着的。
+
+简单说就是程序的运行已经超出了该对象的作用域了。
+
+举比例如以下图：本地变量count在25行时已经超出了其作用域，则在此时称之为count处于不可视阶段。当然这样的情况编译器在编译的过程中会直接报错了。
+
+![img](http://img.blog.csdn.net/20140805162025676?watermark/2/text/aHR0cDovL2Jsb2cuY3Nkbi5uZXQvc29kaW5v/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70/gravity/SouthEast)
+图2. 不可见阶段演示样例
+
+##### [4] 不可达阶段(Unreachable)
+
+对象处于不可达阶段是指该对象不再被不论什么强引用所持有。
+
+与“不可见阶段”相比，“不可见阶段”是指程序不再持有该对象的不论什么强引用，这样的情况下，该对象仍可能被JVM等系统下的某些已装载的静态变量或线程或JNI等强引用持有着，这些特殊的强引用被称为”GC root”。存在着这些GC root会导致对象的内存泄露情况，无法被回收。
+
+##### [5] 收集阶段(Collected)
+
+当垃圾回收器发现该对象已经处于“不可达阶段”而且垃圾回收器已经对该对象的内存空间又一次分配做好准备时，则对象进入了“收集阶段”。假设该对象已经重写了finalize()方法，则会去运行该方法的终端操作。
+
+这里要特别说明一下：不要重载finazlie()方法！原因有两点：
+
+
+
+- l 会影响JVM的对象分配与回收速度
+
+
+
+在分配该对象时，JVM须要在垃圾回收器上注冊该对象，以便在回收时可以运行该重载方法；在该方法的运行时须要消耗CPU时间且在运行完该方法后才会又一次运行回收操作，即至少须要垃圾回收器对该对象运行两次GC。
+
+
+
+- l 可能造成该对象的再次“复活”
+
+
+
+在finalize()方法中，假设有其他的强引用再次持有该对象，则会导致对象的状态由“收集阶段”又又一次变为“应用阶段”。这个已经破坏了Java对象的生命周期进程，且“复活”的对象不利用兴许的代码管理。
+
+##### [6] 终结阶段
+
+当对象运行完finalize()方法后仍然处于不可达状态时，则该对象进入终结阶段。在该阶段是等待垃圾回收器对该对象空间进行回收。
+
+##### [7] 对象空间又一次分配阶段
+
+垃圾回收器对该对象的所占用的内存空间进行回收或者再分配了，则该对象彻底消失了，称之为“对象空间又一次分配阶段”。
+
+#### 【< 内存泄漏>】
+
+##### [1] 为什么会产生内存泄漏？
+
+当一个对象已经不需要再使用本该被回收时，另外一个正在使用的对象持有它的引用从而导致它不能被回收，这导致本该被回收的对象不能被回收而停留在堆内存中，这就产生了内存泄漏。
+
+##### [2] 内存泄漏对程序的影响？
+
+内存泄漏是造成应用程序OOM的主要原因之一。我们知道Android系统为每个应用程序分配的内存是有限的，而当一个应用中产生的内存泄漏比较多时，这就难免会导致应用所需要的内存超过系统分配的内存限额，这就造成了内存溢出从而导致应用Crash。
+
+##### [3] 如何检查和分析内存泄漏？
+
+因为内存泄漏是在堆内存中，所以对我们来说并不是可见的。通常我们可以借助**MAT、LeakCanary**等工具来检测应用程序是否存在内存泄漏。
+ 1、MAT是一款强大的内存分析工具，功能繁多而复杂。
+ 2、LeakCanary则是由Square开源的一款轻量级的第三方内存泄漏检测工具，当检测到程序中产生内存泄漏时，它将以最直观的方式告诉我们哪里产生了内存泄漏和导致谁泄漏了而不能被回收。
+
+##### [4] 常见的内存泄漏及解决方法
+
+###### 1 单例造成的内存泄漏
+
+由于单例的静态特性使得其生命周期和应用的生命周期一样长，如果一个对象已经不再需要使用了，而单例对象还持有该对象的引用，就会使得该对象不能被正常回收，从而导致了内存泄漏。
+ **示例：防止单例导致内存泄漏的实例**
+
+```csharp
+// 使用了单例模式
+public class AppManager {
+    private static AppManager instance;
+    private Context context;
+    private AppManager(Context context) {
+        this.context = context;
+    }
+    public static AppManager getInstance(Context context) {
+        if (instance != null) {
+            instance = new AppManager(context);
+        }
+        return instance;
+    }
+}
+```
+
+这样不管传入什么Context最终将使用Application的Context，而单例的生命周期和应用的一样长，这样就防止了内存泄漏。？？？
+
+###### 2 非静态内部类创建静态实例造成的内存泄漏
+
+例如，有时候我们可能会在启动频繁的Activity中，为了避免重复创建相同的数据资源，可能会出现如下写法：
+
+```java
+public class MainActivity extends AppCompatActivity {
+
+    private static TestResource mResource = null;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        if(mResource == null){
+            mResource = new TestResource();
+        }
+        //...
+    }
+    
+    class TestResource {
+    //...
+    }
+}
+```
+
+这样在Activity内部创建了一个非静态内部类的单例，每次启动Activity时都会使用该单例的数据。虽然这样避免了资源的重复创建，但是这种写法却会造成内存泄漏。因为非静态内部类默认会持有外部类的引用，而该非静态内部类又创建了一个静态的实例，该实例的生命周期和应用的一样长，这就导致了该静态实例一直会持有该Activity的引用，从而导致Activity的内存资源不能被正常回收。
+ **解决方法**：将该内部类设为静态内部类或将该内部类抽取出来封装成一个单例，如果需要使用Context，就使用Application的Context。
+
+###### 3 Handler造成的内存泄漏
+
+示例：创建匿名内部类的静态对象
+
+```java
+public class MainActivity extends AppCompatActivity {
+
+    private final Handler handler = new Handler() {
+        @Override
+        public void handleMessage(Message msg) {
+            // ...
+        }
+    };
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                // ...
+                handler.sendEmptyMessage(0x123);
+            }
+        });
+    }
+}
+```
+
+1、**从Android的角度**
+ 当Android应用程序启动时，该应用程序的主线程会自动创建一个Looper对象和与之关联的MessageQueue。当主线程中实例化一个Handler对象后，它就会自动与主线程Looper的MessageQueue关联起来。所有发送到MessageQueue的Messag都会持有Handler的引用，所以Looper会据此回调Handle的handleMessage()方法来处理消息。只要MessageQueue中有未处理的Message，Looper就会不断的从中取出并交给Handler处理。另外，主线程的Looper对象会伴随该应用程序的整个生命周期。
+ 2、 **Java角度**
+ 在Java中，非静态内部类和匿名类内部类都会潜在持有它们所属的外部类的引用，但是静态内部类却不会。
+
+对上述的示例进行分析，当MainActivity结束时，未处理的消息持有handler的引用，而handler又持有它所属的外部类也就是MainActivity的引用。这条引用关系会一直保持直到消息得到处理，这样阻止了MainActivity被垃圾回收器回收，从而造成了内存泄漏。
+ **解决方法**：将Handler类独立出来或者使用静态内部类，这样便可以避免内存泄漏。
+
+###### 4 线程造成的内存泄漏
+
+示例：AsyncTask和Runnable
+
+```java
+public class MainActivity extends AppCompatActivity {
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+
+        new Thread(new MyRunnable()).start();
+        new MyAsyncTask(this).execute();
+    }
+
+    class MyAsyncTask extends AsyncTask<Void, Void, Void> {
+
+        // ...
+
+        public MyAsyncTask(Context context) {
+            // ...
+        }
+
+        @Override
+        protected Void doInBackground(Void... params) {
+            // ...
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            // ...
+        }
+    }
+
+    class MyRunnable implements Runnable {
+        @Override
+        public void run() {
+            // ...
+        }
+    }
+}
+```
+
+AsyncTask和Runnable都使用了匿名内部类，那么它们将持有其所在Activity的隐式引用。如果任务在Activity销毁之前还未完成，那么将导致Activity的内存资源无法被回收，从而造成内存泄漏。
+ **解决方法**：将AsyncTask和Runnable类独立出来或者使用静态内部类，这样便可以避免内存泄漏。
+
+###### 5 资源未关闭造成的内存泄漏
+
+对于使用了BraodcastReceiver，ContentObserver，File，Cursor，Stream，Bitmap等资源，应该在Activity销毁时及时关闭或者注销，否则这些资源将不会被回收，从而造成内存泄漏。
+
+1）比如在Activity中register了一个BraodcastReceiver，但在Activity结束后没有unregister该BraodcastReceiver。
+ 2）资源性对象比如Cursor，Stream、File文件等往往都用了一些缓冲，我们在不使用的时候，应该及时关闭它们，以便它们的缓冲及时回收内存。它们的缓冲不仅存在于 java虚拟机内，还存在于java虚拟机外。如果我们仅仅是把它的引用设置为null，而不关闭它们，往往会造成内存泄漏。
+ 3）对于资源性对象在不使用的时候，应该调用它的close()函数将其关闭掉，然后再设置为null。在我们的程序退出时一定要确保我们的资源性对象已经关闭。
+ 4）Bitmap对象不在使用时调用recycle()释放内存。2.3以后的bitmap应该是不需要手动recycle了，内存已经在java层了。
+
+###### 6 使用ListView时造成的内存泄漏
+
+初始时ListView会从BaseAdapter中根据当前的屏幕布局实例化一定数量的View对象，同时ListView会将这些View对象缓存起来。当向上滚动ListView时，原先位于最上面的Item的View对象会被回收，然后被用来构造新出现在下面的Item。这个构造过程就是由getView()方法完成的，getView()的第二个形参convertView就是被缓存起来的Item的View对象（初始化时缓存中没有View对象则convertView是null）。
+
+构造Adapter时，没有使用缓存的convertView。
+ **解决方法**：在构造Adapter时，使用缓存的convertView。
+
+###### 7 集合容器中的内存泄露
+
+我们通常把一些对象的引用加入到了集合容器（比如ArrayList）中，当我们不需要该对象时，并没有把它的引用从集合中清理掉，这样这个集合就会越来越大。如果这个集合是static的话，那情况就更严重了。
+ **解决方法**：在退出程序之前，将集合里的东西clear，然后置为null，再退出程序。
+
+###### 8 WebView造成的泄露
+
+当我们不要使用WebView对象时，应该调用它的destory()函数来销毁它，并释放其占用的内存，否则其长期占用的内存也不能被回收，从而造成内存泄露。
+ **解决方法**：为WebView另外开启一个进程，通过AIDL与主线程进行通信，WebView所在的进程可以根据业务的需要选择合适的时机进行销毁，从而达到内存的完整释放。
+
+##### [5] 如何避免内存泄漏？
+
+1、在涉及使用Context时，对于生命周期比Activity长的对象应该使用Application的Context。凡是使用Context优先考虑Application的Context，当然它并不是万能的，对于有些地方则必须使用Activity的Context。对于Application，Service，Activity三者的Context的应用场景如下：
+
+![img](https:////upload-images.jianshu.io/upload_images/2219881-0dec6bcf7aef3b4d.jpg?imageMogr2/auto-orient/strip|imageView2/2/w/954/format/webp)
+
+其中，NO1表示Application和Service可以启动一个Activity，不过需要创建一个新的task任务队列。而对于Dialog而言，只有在Activity中才能创建。除此之外三者都可以使用。
+
+2、对于需要在静态内部类中使用非静态外部成员变量（如：Context、View )，可以在静态内部类中使用弱引用来引用外部类的变量来避免内存泄漏。
+ 3、对于不再需要使用的对象，显示的将其赋值为null，比如使用完Bitmap后先调用recycle()，再赋为null。
+ 4、保持对对象生命周期的敏感，特别注意单例、静态对象、全局性集合等的生命周期。
+ 5、对于生命周期比Activity长的内部类对象，并且内部类中使用了外部类的成员变量，可以这样做避免内存泄漏：
+ 1）将内部类改为静态内部类
+ 2）静态内部类中使用弱引用来引用外部类的成员变量
+
 #### 【<类加载器专题>】
 
 ##### [1]  什么是类加载器？
@@ -2953,7 +3241,7 @@ dump堆内存信息后，需要对dump出的文件进行分析，从而找到OOM
 
 > **加点盐，准备解析初始化**
 
-**[类加载过程：](https://cyc2018.github.io/CS-Notes/#/notes/Java 虚拟机?id=类加载过程)**包含了加载、验证、准备、解析和初始化这 5 个阶段。
+**[类加载过程](https://cyc2018.github.io/CS-Notes/#/notes/Java 虚拟机?id=类加载过程)**包含了加载、验证、准备、解析和初始化这 5 个阶段。
 
 * **加载：加载是指将类的.class文件中的二进制数据读入到内存中，将其放在运行时数据区的方法区内，最后在堆区创建一个java.lang.Class对象，用来封装类在方法区内的数据结构**。
 
