@@ -2243,6 +2243,8 @@ HashMap是利用HashCode()来区别两个不同的对象。而HashCode()是本�
     }
 ~~~
 
+
+
 ##### [10] 其他总结
 
 **HashMap 有什么特点？**
@@ -2685,6 +2687,12 @@ ArrayList扩容的核心方法grow()，下面将针对三种情况对该方法�
 2. 当前数组是由自定义初始容量构造方法创建并且指定初始容量为0。此时minCapacity等于1那么根据下面逻辑可以看到最后数组的容量会从0变成1。这边可以看到一个严重的问题，一旦我们执行了初始容量为0，那么根据下面的算法前四次扩容每次都 +1，在第5次添加数据进行扩容的时候才是按照当前容量的1.5倍进行扩容。
 3. 当扩容量（newCapacity）大于ArrayList数组定义的最大值后会调用hugeCapacity来进行判断。如果minCapacity已经大于Integer的最大值（溢出为负数）那么抛出OutOfMemoryError（内存溢出）否则的话根据与MAX_ARRAY_SIZE的比较情况确定是返回Integer最大值还是MAX_ARRAY_SIZE。这边也可以看到ArrayList允许的最大容量就是Integer的最大值（-2的31次方~2的31次方减1）。
 
+#### 10. LinkedHashMap和TreeMap的区别？
+
+**1. LinkedHashMap**：LinkedHashMap 拥有 HashMap 的所有特性，它比 HashMap 多维护了一个双向链表，因此可以按照插入的顺序从头部或者从尾部迭代，是有序的，不过因为比 HashMap 多维护了一个双向链表，它的内存相比而言要比 HashMap 大，并且性能会差一些，但是如果需要考虑到元素插入的顺序的话， LinkedHashMap 不失为一种好的选择
+
+**2. TreeMap**：与 HashMap 不同， TreeMap 的底层就是一颗红黑树，它的 containsKey , get , put and remove 方法的时间复杂度是 log(n) ，并且它是按照 key 的自然顺序（或者指定排序）排列，与 LinkedHashMap 不同， LinkedHashMap 保证了元素是按照插入的顺序排列。
+
 # JVM
 
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/20200408201336136.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3dlaXhpbl80MzUxODAzOA==,size_16,color_FFFFFF,t_70)
@@ -3067,7 +3075,7 @@ dump堆内存信息后，需要对dump出的文件进行分析，从而找到OOM
  >>- 方法区中类静态属性引用的对象
  >>- 方法区中常量引用的对象
  >>
- >>**便于记忆，称他为两栈两方法，总之一句话，GC Root 对象一定是影响程序运行的对象。**
+ >>**便于记忆，称他为两栈两方法，总之一句话，GC Root 对象一定是影响程序运行的对象。**GC管理的主要区域是Java堆，一般情况下只针对堆进行垃圾回收。方法区、栈和本地方法区不被GC所管理,因而选择这些区域内的对象作为GC roots,被GC roots引用的对象不被GC回收。
  >
  >2. **何为循环引用**?
  >
@@ -7017,7 +7025,7 @@ public static void main(java.lang.String[]);
 
 >会调用操作系统层面的moniter
 
-##### [[5] JVM 对 synchronized 的锁优化](https://cyc2018.github.io/CS-Notes/#/notes/Java 并发?id=十二、锁优化)
+##### [[6] JVM 对 synchronized 的锁优化](https://cyc2018.github.io/CS-Notes/#/notes/Java 并发?id=十二、锁优化)
 
 **[1. 自旋锁](https://cyc2018.github.io/CS-Notes/#/notes/Java 并发?id=自旋锁)**
 
@@ -7057,17 +7065,54 @@ public static String concatString(String s1, String s2, String s3) {
 
 上一节的示例代码中连续的 append() 方法就属于这类情况。如**果虚拟机探测到由这样的一串零碎的操作都对同一个对象加锁，将会把加锁的范围扩展（粗化）到整个操作序列的外部**。对于上一节的示例代码就是扩展到第一个 append() 操作之前直至最后一个 append() 操作之后，这样只需要加锁一次就可以了。
 
-##### [8] synchronized 和 volatile 的区别是什么？
+##### [7] synchronized 和 volatile 的区别是什么？
 
 1. volatile 本质是在告诉 JVM当前变量在寄存器（工作内存）中的值是不确定的，需要从主存中读取；synchronized 则是锁定当前变量，只有当前线程可以访问该变量，其他线程被阻塞住。
-
 2. volatile 仅能使用在变量级别；synchronized 则可以使用在变量、方法、和类级别的。
-
 3. volatile 仅能实现变量的修改可见性，不能保证原子性；而 synchronized 则可以保证变量的修改可见性和原子性。
-
 4. **volatile 不会造成线程的阻塞**；synchronized 可能会造成线程的阻塞。
-
 5. volatile 标记的变量不会被编译器优化；synchronized 标记的变量可以被编译器优化。
+
+##### [8] synchronized 加在静态方法上和非静态方法上的区别？
+
+**Synchronized修饰非静态方法，是对调用该方法的对象加锁，俗称“对象锁”。**
+
+**Synchronized修饰静态方法，是对该类对象加锁，俗称“类锁”。**该类内所有的加锁的静态方法共用这一把锁, 一个加锁静态方法执行, 同类另一个加锁静态方法不能执行,要等持有锁的线程释放锁
+
+>- 静态方法的锁属于类, 一个类中所有加锁的静态方法共用该锁;
+>- 非静态方法的锁属于对象, 一个对象中所有加锁的非静态方法共用, 和静态方法的锁不同而互不相干;
+>- 加锁的方法的执行不会影响同一个类/对象中未加锁的方法的执行(因为其他方法没有锁呀)。
+
+https://blog.csdn.net/q5706503/article/details/84996537
+
+##### [9] Java中synchronized实现类锁的两种方式及原理解析
+
+https://blog.csdn.net/x541211190/article/details/106228384/
+
+**1. 什么是类锁**
+
+```
+类锁指synchronize修饰的静态方法或指定锁为class对象。
+```
+
+**2. 类锁来自何处？**
+
+不同的线程，访问使用类锁的方法的时候，他们获取到的“锁”，其实是Class对象。因为同一个类中有且只有一个Class对象，但同一个类中可以有很多个其他对象。此时，就出现了同一个类中多个对象对Class对象使用的竞争，类锁则保证了在同一时间，只允许一个线程访问被类锁锁住的方法。
+
+**3. 类锁有两种实现方式：**
+
+1. `synchronized`加在`static`方法上（静态方法锁）。
+2. `synchronized(*.class`)代码块。
+
+##### 4. 为什么同步方法上一定要加上`static`才能实现类锁？
+
+同步方法加上`static`关键字后，那此方法在class创建的时候，就已经初始化好了。类中所有的实例，同步使用这个方法，锁的作用范围是最大的。
+
+如果不加`static`关键字,则该方法会被`instance1`和`instance2`同时访问到，因为锁的范围仅仅局限在`instance1`和`instance2`对象中。此时是不能实现`instance1`和`instance2`两个对象所在的不同线程之间的同步。
+
+##### 5. synchronized(*.class)代码块方式实现类锁
+
+只要同步代码块中是*.class，不管有多少个对象调用这段代码，都表示大家共用一个对象，这就实现了不同的实例，串行的执行此代码块。 
 
 ### 【< AQS>】
 
