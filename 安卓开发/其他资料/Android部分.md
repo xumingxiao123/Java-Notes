@@ -238,11 +238,11 @@ getApplicationContext()和getApplication()方法得到的对象都是同一个ap
 
 **View的绘制流程：OnMeasure()——>OnLayout()——>OnDraw()**
 
-第一步：OnMeasure()：测量视图大小。从顶层父View到子View递归调用measure方法，measure方法又回调OnMeasure。
+第一步：**OnMeasure()：**测量视图大小。从顶层父View到子View递归调用measure方法，measure方法又回调OnMeasure。
 
-第二步：OnLayout()：确定View位置，进行页面布局。从顶层父View向子View的递归调用view.layout方法的过程，即父View根据上一步measure子View所得到的布局大小和布局参数，将子View放在合适的位置上。
+第二步：**OnLayout()：**确定View位置，进行页面布局。从顶层父View向子View的递归调用view.layout方法的过程，即父View根据上一步measure子View所得到的布局大小和布局参数，将子View放在合适的位置上。
 
-第三步：OnDraw()：绘制视图。ViewRoot创建一个Canvas对象，然后调用OnDraw()。六个步骤：
+第三步：**OnDraw()：**绘制视图。ViewRoot创建一个Canvas对象，然后调用OnDraw()。六个步骤：
 
 ①、绘制视图的背景；
 
@@ -258,7 +258,7 @@ getApplicationContext()和getApplication()方法得到的对象都是同一个ap
 
 ### 12、View，ViewGroup事件分发
 
-1. Touch事件分发中只有两个主角:ViewGroup和View。ViewGroup包含onInterceptTouchEvent、dispatchTouchEvent、onTouchEvent三个相关事件。View包含dispatchTouchEvent、onTouchEvent两个相关事件。其中ViewGroup又继承于View。
+1. Touch事件分发中只有两个主角:**ViewGroup和View**。ViewGroup包含onInterceptTouchEvent、dispatchTouchEvent、onTouchEvent三个相关事件。View包含dispatchTouchEvent、onTouchEvent两个相关事件。其中ViewGroup又继承于View。
 
 2. ViewGroup和View组成了一个树状结构，根节点为Activity内部包含的一个ViwGroup。
 
