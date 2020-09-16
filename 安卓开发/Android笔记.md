@@ -1295,9 +1295,1017 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
 
 #### 8. MVC&MVP&MVVM
 
-#### 9. intentService
+#### 9. 内存泄露
 
-#### 10. 内存泄露
+##### [1] 前言
 
-#### 11. binder机制 
+对于C++来说，内存泄漏就是new出来的对象没有delete；
+对于Java来说，就是new出来的Object 放在Heap上无法被GC回收；
+
+![img](https://pic3.zhimg.com/80/v2-4a25eb2147ada794725317d4be1bf9de_720w.png)
+
+
+
+本文通过QQ和Qzone中内存泄漏实例来讲android中内存泄漏分析解法和编写代码应注意的事项。
+
+##### [2] Java 中的内存分配
+
+1. **静态储存区**：编译时就分配好，在程序整个运行期间都存在。它主要存放静态数据和常量；
+2. **栈区**：当方法执行时，会在栈区内存中创建方法体内部的局部变量，方法结束后自动释放内存；
+3. **堆区**：通常存放 new 出来的对象。由 Java 垃圾回收器回收。
+
+##### [3] 四种引用类型的介绍
+
+1. **强引用**(StrongReference)：JVM 宁可抛出 OOM ，也不会让 GC 回收具有强引用的对象；
+2. **软引用**(SoftReference)：只有在内存空间不足时，才会被回的对象；
+3. **弱引用**(WeakReference)：在 GC 时，一旦发现了只具有弱引用的对象，不管当前内存空间足够与否，都会回收它的内存；
+4. **虚引用**(PhantomReference)：任何时候都可以被GC回收，当垃圾回收器准备回收一个对象时，如果发现它还有虚引用，就会在回收对象的内存之前，把这个虚引用加入到与之关联的引用队列中。程序可以通过判断引用队列中是否存在该对象的虚引用，来了解这个对象是否将要被回收。可以用来作为GC回收Object的标志。
+
+**我们常说的内存泄漏是指new出来的Object无法被GC回收，即为强引用：**
+
+![img](https://pic3.zhimg.com/80/v2-15fbde414508a22c98c9fc6acbc65dad_720w.jpg)
+
+
+
+内存泄漏发生时的主要表现为内存抖动，可用内存慢慢变少：
+
+![img](https://pic3.zhimg.com/80/v2-4483280b8b2bab984b40251648f92222_720w.png)
+
+
+
+##### [4] Andriod 中分析内存泄漏的工具MAT
+
+MAT（Memory Analyzer Tools）是一个 Eclipse 插件，它是一个快速、功能丰富的JAVA heap分析工具，它可以帮助我们查找内存泄漏和减少内存消耗。
+
+MAT 插件的下载地址：
+
+> [Eclipse Memory Analyzer Open Source Project](https://link.zhihu.com/?target=http%3A//www.eclipse.org/mat/)
+
+MAT 使用方法介绍：
+
+> [内存泄漏 之 MAT工具的使用 - 狐狸已化妖 - 博客园](https://link.zhihu.com/?target=http%3A//www.cnblogs.com/larack/p/6071209.html)
+
+##### [5] QQ 和 Qzone内存泄漏如何监控
+
+![img](https://pic3.zhimg.com/80/v2-f6eb4f13fb1964a3f9807c7112166e1a_720w.png)
+
+
+
+QQ和Qzone 的内存泄漏采用SNGAPM解决方案，SNGAPM是一个性能监控、分析的统一解决方案，它从终端收集性能信息，上报到一个后台，后台将监控类信息聚合展示为图表，将分析类信息进行分析并提单，通知开发者；
+
+1. SNGAPM由App（MagnifierApp）和 web server（MagnifierServer）两部分组成；
+2. MagnifierApp在自动内存泄漏检测中是一个衔接检测组件（LeakInspector）和自动化云分析（MagnifierCloud）的中间性平台，它从LeakInspector的内存dump自动化上传MagnifierServer；
+3. MagnifierServer后台会定时提交分析任务到MagnifierCloud；
+4. MagnifierCloud分析结束之后会更新数据到magnifier web上，同时以bug单形式通知开发者。
+
+##### [6] 常见的内存泄漏案例
+
+###### case 1. 单例造成的内存泄露
+
+单例的静态特性导致其生命周期同应用一样长。
+
+**解决方案：**
+
+> 1. 将该属性的引用方式改为弱引用;
+> 2. 如果传入Context，使用ApplicationContext;
+
+**example：泄漏代码片段**
+
+```text
+ private static ScrollHelper mInstance;    
+ private ScrollHelper() {
+ }    
+ public static ScrollHelper getInstance() {        
+     if (mInstance == null) {           
+        synchronized (ScrollHelper.class) {                
+             if (mInstance == null) {
+                 mInstance = new ScrollHelper();
+             }
+         }
+     }        
+
+     return mInstance;
+ }    
+ /**
+  * 被点击的view
+  */
+ private View mScrolledView = null;    
+ public void setScrolledView(View scrolledView) {
+     mScrolledView = scrolledView;
+ }
+```
+
+**Solution：使用WeakReference**
+
+```text
+ private static ScrollHelper mInstance;    
+ private ScrollHelper() {
+ }    
+ public static ScrollHelper getInstance() {        
+     if (mInstance == null) {            
+         synchronized (ScrollHelper.class) {                
+             if (mInstance == null) {
+                 mInstance = new ScrollHelper();
+             }
+         }
+     }        
+
+     return mInstance;
+ }    
+ /**
+  * 被点击的view
+  */
+ private WeakReference<View> mScrolledViewWeakRef = null;    
+ public void setScrolledView(View scrolledView) {
+     mScrolledViewWeakRef = new WeakReference<View>(scrolledView);
+ }
+```
+
+###### case 2. InnerClass匿名内部类
+
+在Java中，**非静态内部类** 和 **匿名类** 都会潜在的引用它们所属的外部类，但是，静态内部类却不会。如果这个非静态内部类实例做了一些耗时的操作，就会造成外围对象不会被回收，从而导致内存泄漏。
+
+**解决方案：**
+
+> 1. 将内部类变成静态内部类;
+>
+> 2. 如果有强引用Activity中的属性，则将该属性的引用方式改为弱引用;
+>
+> 3. 在业务允许的情况下，当Activity执行onDestory时，结束这些耗时任务;
+>
+> 4. 那么非静态内部类为什么持有外部类的引用？
+>
+>    **因为非静态内部类依赖着外部类，没有外部类就不能创建内部类。**
+
+**example：**
+
+```text
+ public class LeakAct extends Activity {  
+     @Override
+     protected void onCreate(Bundle savedInstanceState) {    
+         super.onCreate(savedInstanceState);
+         setContentView(R.layout.aty_leak);
+         test();
+     } 
+     //这儿发生泄漏    
+     public void test() {    
+         new Thread(new Runnable() {      
+             @Override
+             public void run() {        
+                 while (true) {          
+                     try {
+                         Thread.sleep(1000);
+                     } catch (InterruptedException e) {
+                         e.printStackTrace();
+                     }
+                 }
+             }
+         }).start();
+     }
+ }
+```
+
+**Solution：**
+
+```text
+ public class LeakAct extends Activity {  
+     @Override
+     protected void onCreate(Bundle savedInstanceState) {    
+         super.onCreate(savedInstanceState);
+         setContentView(R.layout.aty_leak);
+         test();
+     }  
+     //加上static，变成静态匿名内部类
+     public static void test() {    
+         new Thread(new Runnable() {     
+             @Override
+             public void run() {        
+                 while (true) {          
+                     try {
+                         Thread.sleep(1000);
+                     } catch (InterruptedException e) {
+                         e.printStackTrace();
+                     }
+                 }
+             }
+         }).start();
+     }
+ }
+```
+
+###### case 3. Activity Context 的不正确使用
+
+在Android应用程序中通常可以使用两种Context对象：Activity和Application。当类或方法需要Context对象的时候常见的做法是使用第一个作为Context参数。这样就意味着View对象对整个Activity保持引用，因此也就保持对Activty的所有的引用。
+
+假设一个场景，当应用程序有个比较大的Bitmap类型的图片，每次旋转是都重新加载图片所用的时间较多。为了提高屏幕旋转是Activity的创建速度，最简单的方法时将这个Bitmap对象使用Static修饰。 当一个Drawable绑定在View上，实际上这个View对象就会成为这份Drawable的一个Callback成员变量。而静态变量的生命周期要长于Activity。导致了当旋转屏幕时，**Activity无法被回收，而造成内存泄露**。
+
+**解决方案：**
+
+> 1. 使用ApplicationContext代替ActivityContext，因为ApplicationContext会随着应用程序的存在而存在，而不依赖于activity的生命周期；
+> 2. 对Context的引用不要超过它本身的生命周期，慎重的对Context使用“static”关键字。Context里如果有线程，一定要在onDestroy()里及时停掉。
+
+**example：**
+
+```text
+ private static Drawable sBackground;
+ @Override
+ protected void onCreate(Bundle state) {  
+     super.onCreate(state);
+     TextView label = new TextView(this);
+     label.setText("Leaks are bad");  
+     if (sBackground == null) {
+         sBackground = getDrawable(R.drawable.large_bitmap);
+     }
+     label.setBackgroundDrawable(sBackground);
+     setContentView(label);
+ }
+```
+
+**Solution：**
+
+```text
+ private static Drawable sBackground;
+ @Override
+ protected void onCreate(Bundle state) {  
+     super.onCreate(state);
+     TextView label = new TextView(this);
+     label.setText("Leaks are bad");  
+     if (sBackground == null) {
+         sBackground = getApplicationContext().getDrawable(R.drawable.large_bitmap);
+     }
+     label.setBackgroundDrawable(sBackground);
+     setContentView(label);
+ }
+```
+
+###### case 4. Handler引起的内存泄漏
+
+**当Handler中有延迟的的任务或是等待执行的任务队列过长，由于消息持有对Handler的引用，而Handler又持有对其外部类的潜在引用**，这条引用关系会一直保持到消息得到处理，而导致了Activity无法被垃圾回收器回收，而导致了内存泄露。
+
+**解决方案：**
+
+> 1. 可以把Handler类放在单独的类文件中，或者使用静态内部类便可以避免泄露;
+> 2. 如果想在Handler内部去调用所在的Activity,那么可以在handler内部使用弱引用的方式去指向所在Activity.使用Static + WeakReference的方式来达到断开Handler与Activity之间存在引用关系的目的。
+
+**Solution：**
+
+```text
+ @Override
+ protected void doOnDestroy() {        
+     super.doOnDestroy();        
+     if (mHandler != null) {
+         mHandler.removeCallbacksAndMessages(null);
+     }
+     mHandler = null;
+     mRenderCallback = null;
+ }
+```
+
+###### case 5. 注册监听器的泄漏
+
+系统服务可以通过Context.getSystemService 获取，它们负责执行某些后台任务，或者为硬件访问提供接口。如果Context 对象想要在服务内部的事件发生时被通知，那就需要把自己注册到服务的监听器中。然而，这会让服务持有Activity 的引用，如果在Activity onDestory时没有释放掉引用就会内存泄漏。
+
+**解决方案：**
+
+> 1. 使用ApplicationContext代替ActivityContext;
+>    1. 在Activity执行onDestory时，调用反注册;
+
+```text
+ mSensorManager = (SensorManager) this.getSystemService(Context.SENSOR_SERVICE);
+```
+
+**Solution：**
+
+```text
+ mSensorManager = (SensorManager) getApplicationContext().getSystemService(Context.SENSOR_SERVICE);
+```
+
+下面是容易造成内存泄漏的系统服务：
+
+```text
+ InputMethodManager imm = (InputMethodManager) context.getApplicationContext().getSystemService(Context.INPUT_METHOD_SERVICE);
+```
+
+**Solution：**
+
+```text
+ protected void onDetachedFromWindow() {        
+     if (this.mActionShell != null) {
+         this.mActionShell.setOnClickListener((OnAreaClickListener)null);
+     }        
+     if (this.mButtonShell != null) { 
+         this.mButtonShell.setOnClickListener((OnAreaClickListener)null);
+     }        
+     if (this.mCountShell != this.mCountShell) {
+         this.mCountShell.setOnClickListener((OnAreaClickListener)null);
+     }        
+     super.onDetachedFromWindow();
+ }
+```
+
+###### case 6. Cursor，Stream没有close，View没有recyle
+
+资源性对象比如(Cursor，File文件等)往往都用了一些缓冲，我们在不使用的时候，应该及时关闭它们，以便它们的缓冲及时回收内存。它们的缓冲不仅存在于 java虚拟机内，还存在于java虚拟机外。如果我们仅仅是把它的引用设置为null,而不关闭它们，往往会造成内存泄漏。因为有些资源性对象，比如SQLiteCursor(在析构函数finalize(),如果我们没有关闭它，它自己会调close()关闭)，如果我们没有关闭它，系统在回收它时也会关闭它，但是这样的效率太低了。因此对于资源性对象在不使用的时候，应该调用它的close()函数，将其关闭掉，然后才置为null. 在我们的程序退出时一定要确保我们的资源性对象已经关闭。
+
+**Solution：**
+
+> 调用onRecycled()
+
+```text
+ @Override
+ public void onRecycled() {
+     reset();
+     mSinglePicArea.onRecycled();
+ }
+```
+
+在View中调用reset()
+
+```text
+ public void reset() {
+     if (mHasRecyled) {            
+         return;
+     }
+ ...
+     SubAreaShell.recycle(mActionBtnShell);
+     mActionBtnShell = null;
+ ...
+     mIsDoingAvatartRedPocketAnim = false;        
+     if (mAvatarArea != null) {
+             mAvatarArea.reset();
+     }        
+     if (mNickNameArea != null) {
+         mNickNameArea.reset();
+     }
+ }
+```
+
+###### case 7. 集合中对象没清理造成的内存泄漏
+
+我们通常把一些对象的引用加入到了集合容器（比如ArrayList）中，当我们不需要该对象时，并没有把它的引用从集合中清理掉，这样这个集合就会越来越大。如果这个集合是static的话，那情况就更严重了。
+所以要在退出程序之前，将集合里的东西clear，然后置为null，再退出程序。
+
+**解决方案：**
+
+> 在Activity退出之前，将集合里的东西clear，然后置为null，再退出程序。
+
+**Solution**
+
+```text
+ private List<EmotionPanelInfo> data;    
+ public void onDestory() {        
+     if (data != null) {
+         data.clear();
+         data = null;
+     }
+ }
+```
+
+###### case 8. WebView造成的泄露
+
+当我们不要使用WebView对象时，应该调用它的destory()函数来销毁它，并释放其占用的内存，否则其占用的内存长期也不能被回收，从而造成内存泄露。
+
+**解决方案：**
+
+> 为webView开启另外一个进程，通过AIDL与主线程进行通信，WebView所在的进程可以根据业务的需要选择合适的时机进行销毁，从而达到内存的完整释放。
+
+###### case 9. 构造Adapter时，没有使用缓存的ConvertView
+
+初始时ListView会从Adapter中根据当前的屏幕布局实例化一定数量的View对象，同时ListView会将这些View对象 缓存起来。
+
+当向上滚动ListView时，原先位于最上面的List Item的View对象会被回收，然后被用来构造新出现的最下面的List Item。
+
+这个构造过程就是由getView()方法完成的，getView()的第二个形参View ConvertView就是被缓存起来的List Item的View对象(初始化时缓存中没有View对象则ConvertView是null)。
+
+#### 10. 进程间通信
+
+| 名称              | 优点                                                         | 缺点                                                         | 适用场景                                                     |
+| ----------------- | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| Bundle            | 简单易用                                                     | 只能传输Bundle支持的数据类型                                 | 四大组件间的进程间通信                                       |
+| 文件共享          | 简单易用                                                     | 不适用高并发场景，并且无法做到进程间即时通信                 | 适用于无关发的情况下，交换简单的数据，对实时性要求不高的场景。 |
+| AIDL              | 功能强大，支持一对多实时并发通信                             | 使用稍复杂，需要处理好线程间的关系                           | 一对多通信且有RPC需求                                        |
+| Messenger         | 功能一般，支持一对多串行通信，支持实时通信                   | 不能很好地处理高并发的情形，不支持RPC，由于数据通过Message传输，因此只能传输Bundle支持的数据类型 | 低并发的一对多实时通信，无RPC需求，或者无需要返回结果的RPC需求 |
+| ContentProvider   | 支持一对多的实时并发通信，在数据源共享方面功能强大，可通过Call方法扩展其它操作 | 可以理解为受约束的AIDL，主要提供对数据源的CRUD操作           | 一对多的进程间数据共享                                       |
+| BroadcastReceiver | 操作简单，对持一对多实时通信                                 | 只支持数据单向传递，效率低且安全性不高                       | 一对多的低频率单向通信                                       |
+| Socket            | 功能强大，可通过网络传输字节流，支持一对多实时并发通信       | 实现细节步骤稍繁琐，不支持直接的RPC                          | 网络间的数据交换                                             |
+
+由于不同的进程拥有不同的数据空间，所以无论是应用内还是应用间，均无法通过共享内存来实现进程间通信。
+
+#### 11.okhttp原理
+
+1. 当我们通过**OkhttpClient**创立一个**Call**，并发起**同步**或者**异步**请求时；
+2. okhttp会通过Dispatcher对我们所有的RealCall（Call的具体实现类）进行统一管理，并通过**execute()**及**enqueue()**方法对同步或者异步请求进行解决；
+3. execute()及enqueue()这两个方法会最终调用RealCall中的**getResponseWithInterceptorChain()**方法，从**阻拦器链**中获取返回结果；
+4. 阻拦器链中，依次通过**RetryAndFollowUpInterceptor**（重定向阻拦器）、**BridgeInterceptor**（桥接阻拦器）、**CacheInterceptor**（缓存阻拦器）、**ConnectInterceptor**（连接阻拦器）、**CallServerInterceptor**（网络阻拦器）对请求依次解决，与服务的建立连接后，获取返回数据，再经过上述阻拦器依次解决后，最后将结果返回给调用方。
+
+> **建造者模式：**使用多个简单的对象一步一步构建成一个复杂的对象。这种类型的设计模式属于创建型模式，它提供了一种创建对象的最佳方式。
+>
+> **责任链模式**：为请求创建了一个接收者对象的链。这种模式给予请求的类型，对请求的发送者和接收者进行解耦。这种类型的设计模式属于行为型模式。在这种模式中，通常**每个接收者都包含对另一个接收者的引用**。如果一个对象不能处理该请求，那么它会把相同的请求传给下一个接收者，依此类推。
+>
+> **优势：**避免请求发送者与接收者耦合在一起，让多个对象都有可能接收请求，将这些对象连接成一条链，并且沿着这条链传递请求，直到有对象处理它为止
+
+​                       ![img](https://imgconvert.csdnimg.cn/aHR0cHM6Ly9pbWcuc29uZ21hLmNvbS93ZW56aGFuZy8yMDE4MTIxNi9zcnF6M2doMmUxdTEzMi5wbmc?x-oss-process=image/format,png)
+
+## 【<View的事件分发>】
+
+#### **一. 概念**
+
+##### 1. 事件分发
+
+View 的事件分发其实就是点击事件（ MotionEvent ）从产生后系统开始分发，到传递给一个具体的 View （ 或者Activity ）的过程，View (或 Activity )会选择是否对事件进行消耗。
+
+##### 2. 事件的类型和事件序列
+
+###### (1)事件类型
+
+- MotionEvent.ACTION_DOWN 按下时产生的事件
+- MotionEvent.ACTION_MOVE 滑动时产生的事件
+- MotionEvent.ACTION_UP 抬起时产生的事件
+- MotionEvent.ACTION_CANCEL 发生异常时产生的事件
+
+###### (2) 事件序列
+
+同一个事件序列指的是从按下时候到抬起时产生的一系列事件，通常以 DOWN 开始，中间有不定数个 MOVE ,最后以 UP 或者 CANCLE 结束。
+
+##### 3. 分发对象和对应的方法
+
+对事件的分发主要涉及三个对象，Activity , ViewGroup ,具体的 View，这三个对象按分发的层次依次是Activity -> ViewGroup -> 具体的 View 。而涉及分发的方法同样主要有三个： - dispatchTouchEvent 对一个事件进行分发，可能是分发给下一层处理，或者分发给自己。 - onInterceptTouchEvent 这个方法只有 ViewGroup 有，用来判断对事件是否进行拦截，如果拦截就不会分发给下一层. - onTouchEvent 对事件进行处理，消耗或者不消耗，不消耗就会返回给上层。对于 ViewGroup 和 View 这个方法还受到 OnTouchListener 和 enable 属性 的影响，具体的后面会阐述。
+
+### 二. 事件分发
+
+##### 1. Activity 对事件的分发
+
+```text
+public boolean dispatchTouchEvent(MotionEvent ev) {
+        ...
+
+        if (getWindow().superDispatchTouchEvent(ev)) {
+            return true;
+        }
+        return onTouchEvent(ev);
+    }
+```
+
+Activity 的事件的处理其实并不负责，即如果下层（不管是 ViewGroup 还是 View ）消耗了这个事件，那么 if 语句就为 true , 则 dispatchTouchEvent 就返回 true 。如果没有消耗就自己对事件进行处理，即调用 onTouchEvent 方法。
+
+```text
+public boolean onTouchEvent(MotionEvent event) {
+        if (mWindow.shouldCloseOnTouch(this, event)) {
+            finish();
+            return true;
+        }
+
+        return false;
+    }
+/** @hide */
+    public boolean shouldCloseOnTouch(Context context, MotionEvent event) {
+        final boolean isOutside =
+                event.getAction() == MotionEvent.ACTION_DOWN && isOutOfBounds(context, event)
+                || event.getAction() == MotionEvent.ACTION_OUTSIDE;
+        if (mCloseOnTouchOutside && peekDecorView() != null && isOutside) {
+            return true;
+        }
+        return false;
+    }
+```
+
+Activity 的 onTouchEvent 会对这个事件进行判断，如果事件在窗口边界外就返回 true，dispatchTouchEvent 就返回 true ;如果在边界内就 返回 false ,最后 dispatchTouchEvent 也会返回 false 。这部分流程如图 （这是截自整体流程图的一部分）
+
+![img](https://picb.zhimg.com/80/v2-93a7cc95d75639afce8c63956f0c2889_720w.jpg)
+
+
+
+##### 2. View 对事件的分发
+
+这里先说 View 对事件的分发是因为 ViewGroup 继承自 View ,ViewGroup 对事件的分发会调用到父类（也就是View ）的方法，因此先理清 View 的分发有助于理解。
+
+```text
+public boolean dispatchTouchEvent(MotionEvent event) {
+           ...
+            ListenerInfo li = mListenerInfo;
+            if (li != null && li.mOnTouchListener != null
+                    && (mViewFlags & ENABLED_MASK) == ENABLED
+                    && li.mOnTouchListener.onTouch(this, event)) {
+                result = true;
+            }
+
+            if (!result && onTouchEvent(event)) {
+                result = true;
+            }
+            ...
+            return result;
+    }
+```
+
+可以看到 View 的事件的处理是先判断 mOnTouchListener !=null 和 View 设置 ENABLED 这两个条件成不成立，不过成立则 调用 onTouch 方法，且如果 onTouch 返回了 true ,那个事件就被消耗 ，View 的 dispatchTouchEvent 就返回 true ; 相反，如果条件不成立或者 onTouch 返回 false ,那么就会执行 View 的 onTouchEvent 方法。
+
+```text
+public boolean onTouchEvent(MotionEvent event) {  
+     ...
+     final boolean clickable = ((viewFlags & CLICKABLE) == CLICKABLE
+                || (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE)
+                || (viewFlags & CONTEXT_CLICKABLE) == CONTEXT_CLICKABLE;
+
+
+    // 若可点击，包括LONG_CLICKABLE 或者 CLICKABLE
+    if (((viewFlags & CLICKABLE) == CLICKABLE ||  
+            (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE)) {  
+
+                switch (event.getAction()) { 
+
+
+                    case MotionEvent.ACTION_UP:  
+                        boolean prepressed = (mPrivateFlags & PREPRESSED) != 0;  
+
+                            ...
+
+                            // 执行performClick() 
+                            performClick();  
+                            break;  
+
+
+                    case MotionEvent.ACTION_DOWN:  
+                        ...
+                        break;  
+
+
+                    case MotionEvent.ACTION_CANCEL:  
+                        ...
+                        break;
+
+
+                    case MotionEvent.ACTION_MOVE:  
+                        ...
+                        break;  
+                } //>> 若可点击，就返回true
+                return true;  
+            }  //>> 若不可点击，就返回false
+            return false;  
+        }
+public boolean performClick() {  
+
+        if (mOnClickListener != null) {  
+            playSoundEffect(SoundEffectConstants.CLICK);  
+            mOnClickListener.onClick(this);  
+            return true;  
+        }  
+        return false;  
+    }
+```
+
+在 onTouchEvent 方法中，如果 View 是可点击的，比如设置了 onClick 或者 onLongClick ,就会执行 onClick 方法，并且 onTouchEvent 返回 true ，如果是不可点击的就返回 false 。需要注意的是这里的 onTouchEvent 是可以被重写的。如果 onTouchEvent 返回 true 那么 View 的 dispatchTouchEvent 就返回 true ,事件就被消耗，如果 onTouchEvent 返回 false , 那么 dispatchTouchEvent 也返回 false ,这时 事件就交由上层处理，也就是 ViewGroup 。这部分流程如图
+
+
+
+![img](https://pic4.zhimg.com/80/v2-982d9338b4a5af2faef3705a5d38979a_720w.jpg)
+
+
+
+##### 3. ViewGroup 对事件的分发
+
+**ViewGroup 对事件的分发也是从 dispatchTouchEvent 方法开始的，不同的是 ViewGroup 对了一个对事件进行拦截的方方法 onInterceptTouchEvent 。**
+
+```text
+public boolean dispatchTouchEvent(MotionEvent ev) {
+
+        final boolean intercepted;
+                ...
+                if (!disallowIntercept) {
+                    intercepted = onInterceptTouchEvent(ev);
+                    ev.setAction(action); // restore action in case it was changed
+                } else {
+                    intercepted = false;
+                }
+                ...
+                //不拦截，分发给下一层
+                if (!canceled && !intercepted) {
+
+                        ...
+                        if (dispatchTransformedTouchEvent(ev, false, child, idBitsToAssign)) {
+                        // Child wants to receive touch within its bounds.
+                        ...
+                        }
+
+
+                ...
+                // 子View 不处理，分发给自己
+             if (mFirstTouchTarget == null) {
+                // No touch targets so treat this as an ordinary view.
+                handled = dispatchTransformedTouchEvent(ev, canceled, null,
+                        TouchTarget.ALL_POINTER_IDS);
+            } ...
+    }
+private boolean dispatchTransformedTouchEvent(MotionEvent event, boolean cancel,
+            View child, int desiredPointerIdBits) {
+        final boolean handled;
+        ...
+        final int oldAction = event.getAction();
+        if (cancel || oldAction == MotionEvent.ACTION_CANCEL) {
+            event.setAction(MotionEvent.ACTION_CANCEL);
+            if (child == null) {  //没有 子View 就自己处理
+                handled = super.dispatchTouchEvent(event); 
+            } else {     //有就分发给下一层 
+                handled = child.dispatchTouchEvent(event);
+            }
+            event.setAction(oldAction);
+            return handled;
+        }
+```
+
+ViewGroup 首先会判断 onInterceptTouchEvent 表示要不要拦截，这个方法也可以重写设置是否拦截，如果返回 false 就表示不拦截，这个事件就会分发给下一层，如果拦截就会分发给自己，当然如果子 View 不处理这个事件，还是会传到 ViewGroup ，ViewGroup 会调用父类也就是 View 的方法，后面的过程就和 View 对事件的处理是一样的 onTouch ,onTouchEvent , onClock ... 这部分的流程如图：
+
+
+
+![img](https://picb.zhimg.com/80/v2-1e5b230836af8d7759895f0055477816_720w.jpg)
+
+
+
+ViewGroup 对事件的拦截 onInterceptTouchEvent 并不是每一次都会调用
+
+```text
+if (actionMasked == MotionEvent.ACTION_DOWN) {
+
+        cancelAndClearTouchTargets(ev);
+        resetTouchState();//重置标志
+    }
+  if (actionMasked == MotionEvent.ACTION_DOWN
+                    || mFirstTouchTarget != null) {
+        final boolean disallowIntercept = (mGroupFlags & FLAG_DISALLOW_INTERCEPT) != 0;
+        if (!disallowIntercept) {
+        intercepted = onInterceptTouchEvent(ev);
+        ev.setAction(action); // restore action in case it was changed
+        } else {
+        intercepted = false;
+        }
+    }
+```
+
+可以看到这里有三个条件：ACTION_DOWN 事件，mFirstTouchTarget 变量，FLAG_DISALLOW_INTERCEPT 这个标志。
+
+###### 1.对于 ACTION_DOWN 事件
+
+在判断之前都会调用 resetTouchState 这个方法重新给 FLAG_DISALLOW_INTERCEPT 置位,因此只要是 DOWN 事件，onInterceptTouchEvent 就会调用。
+
+###### 2.对于 mFirstTouchTarget 这个变量
+
+只要有 View 对事件进行处理，那么这个事件的后续事件就会直接交给这个 View ,mFirstTouchTarget 就直接指向 View , 正常情况下不会再询问 ViewGroup 是否拦截。而特殊情况就是下面这个。
+
+###### 3.对于 FLAG_DISALLOW_INTERCEPT
+
+子 View 可以重置这个标志，使得 disallowIntercept 的值改变从而可能会重新 onInterceptTouchEvent 对事件进行拦截。
+
+
+
+![img](https://pic2.zhimg.com/80/v2-f5533c56a4ee4c93786a56865e97afcc_720w.jpg)
+
+
+
+到这里View 的事件分发的各个流程就已经讲完，最后是一个整体的流程：
+
+
+
+![img](https://pic1.zhimg.com/80/v2-aa95ce94047f3fb51588aaad81493139_720w.jpg)
+
+
+
+## 【<View的绘制>】
+
+### (一).概念
+
+### 1.绘制机制
+
+View 的绘制机制实际上指的是 View 的三大流程 - 测量流程，测量 View 的大小，对应 measure 方法。 - 布局流程，有了 View 的大小后确定 View 的位置，对应 layout 方法。 - 绘制流程，对 View 的颜色，内容等进行绘制，对应 draw 方法。
+
+View 的绘制从 ViewRootImpl 的 performTraversals 开始，首先会调用 performMeasure 方法，在这个方法中会一个 View 会调用 measure 去测量自己的大小，在此之前会调用 onMeasure 去测量子 View 的大小，这样层层调用，最后就会完成整个测量过程，后面的 layout 和 draw 的过程也是大致如此。流程如图
+
+![img](https://pic1.zhimg.com/80/v2-44ef90eed32e37fbee5235b88a99f056_720w.jpg)
+
+
+
+### 2.MeasureSpec
+
+MeasureSpec 是一个测量规格，在测量一个 View 的时候 从父类计算出来的 MeasureSpec 会传给这个 View ，同时会根据 View 自身的 LayoutParams 属性，也就是指定的一些 MATCH_PARENT, WRAP_CONTENT,xxdp 等属性最终一起决定 View 的大小。
+
+MeasureSpec 是一个 int 值，有32位，高2位代表 Mode ,后30 位Size .之所以将两个值包装在在一个 int 是因为这样可以减少减少对象的分配。而 Mode 表示测量模式，有三种测量模式分为别 - UPSPECIFIED ，未指定，父 View 对子 View 不做任何限制 - EXACTLY，精确，父 View 给子 View 的大小是一个确定的值，为 Size - AT_MOST，最大，父 View 给子 View 的大小 是一个不确定的值,最大为 Size
+
+具体的计算就在下面的方法中
+
+```text
+protected void measureChildWithMargins(View child,
+            int parentWidthMeasureSpec, int widthUsed,
+            int parentHeightMeasureSpec, int heightUsed) {
+
+        final MarginLayoutParams lp = (MarginLayoutParams) child.getLayoutParams();
+        //这里的第一个参数就是 父View 的  MeasureSpec
+        //第二个参数就是父 View 对子View 的位置限制 padding 
+        //和 子View 对自己的位置限制 margin 和 已使用的宽度  widthUsed
+        //第三参数就是 xml 指定的子 View 宽度
+        final int childWidthMeasureSpec = getChildMeasureSpec(parentWidthMeasureSpec,
+                mPaddingLeft + mPaddingRight + lp.leftMargin + lp.rightMargin
+                        + widthUsed, lp.width);
+
+        final int childHeightMeasureSpec = getChildMeasureSpec(parentHeightMeasureSpec,
+                mPaddingTop + mPaddingBottom + lp.topMargin + lp.bottomMargin
+                        + heightUsed, lp.height);
+
+        child.measure(childWidthMeasureSpec, childHeightMeasureSpec);
+    }
+```
+
+在父 View 的 MeasureSpec 确定后，会传递给子 View ,子View 就会根据这个 MeasureSpec 和自己的 LayoutParams 属性，计算出自己的 MeasureSpec 和 大小(即 Size)，然后就会将这个 MeasureSpec 传递给子View 的 子View, 从而遍历测量完所有的 View。
+
+```text
+public static int getChildMeasureSpec(int spec, int padding, int childDimension) {
+        int specMode = MeasureSpec.getMode(spec);
+        int specSize = MeasureSpec.getSize(spec);
+
+        //父 View 减去一个 宽度/高度位置限制 就是 父View 给 子View 的 大小
+        int size = Math.max(0, specSize - padding);
+
+        int resultSize = 0;
+        int resultMode = 0;
+
+        switch (specMode) {
+        // Parent has imposed an exact size on us
+        //父 View 是 EXACTLY
+        case MeasureSpec.EXACTLY:
+            // 子View 是 xxdp
+            if (childDimension >= 0) {
+                resultSize = childDimension; //使用 子View 指定的
+                resultMode = MeasureSpec.EXACTLY;
+
+            // 子 View 是 MATCH_PARENT
+            } else if (childDimension == LayoutParams.MATCH_PARENT) {
+                // Child wants to be our size. So be it.
+                resultSize = size; //使用父 View 给的
+                resultMode = MeasureSpec.EXACTLY;
+
+            //子 View 是 WRAP_CONTENT
+            } else if (childDimension == LayoutParams.WRAP_CONTENT) {
+                // Child wants to determine its own size. It can't be
+                // bigger than us.
+                resultSize = size; //使用父 View 给的
+                resultMode = MeasureSpec.AT_MOST;
+            }
+            break;
+
+        // Parent has imposed a maximum size on us
+         //父 View 是 AT_MOST
+        case MeasureSpec.AT_MOST:
+            // 子View 是 xxdp
+            if (childDimension >= 0) {
+                // Child wants a specific size... so be it
+                resultSize = childDimension; //使用 子View 指定的
+                resultMode = MeasureSpec.EXACTLY;
+
+             // 子 View 是 MATCH_PARENT
+            } else if (childDimension == LayoutParams.MATCH_PARENT) {
+                // Child wants to be our size, but our size is not fixed.
+                // Constrain child to not be bigger than us.
+                resultSize = size; //使用父 View 给的
+                resultMode = MeasureSpec.AT_MOST;
+
+
+            //子 View 是 WRAP_CONTENT
+            } else if (childDimension == LayoutParams.WRAP_CONTENT) {
+                // Child wants to determine its own size. It can't be
+                // bigger than us.
+                resultSize = size; //使用父 View 给的
+                resultMode = MeasureSpec.AT_MOST;
+            }
+            break;
+
+        // Parent asked to see how big we want to be
+        //父 View 是 UNSPECIFIED
+        case MeasureSpec.UNSPECIFIED:
+            // 子View 是 xxdp
+            if (childDimension >= 0) {
+                // Child wants a specific size... let him have it
+                resultSize = childDimension; //使用 子View 指定的
+                resultMode = MeasureSpec.EXACTLY;
+
+             // 子 View 是 MATCH_PARENT
+            } else if (childDimension == LayoutParams.MATCH_PARENT) {
+                // Child wants to be our size... find out how big it should
+                // be
+                resultSize = View.sUseZeroUnspecifiedMeasureSpec ? 0 : size; 默认为 0
+                resultMode = MeasureSpec.UNSPECIFIED;
+
+            //子 View 是 WRAP_CONTENT
+            } else if (childDimension == LayoutParams.WRAP_CONTENT) {
+                // Child wants to determine its own size.... find out how
+                // big it should be
+                resultSize = View.sUseZeroUnspecifiedMeasureSpec ? 0 : size; 默认为 0
+                resultMode = MeasureSpec.UNSPECIFIED;
+            }
+            break;
+        }
+        //noinspection ResourceType
+        //将 Mode 和 Size 包装成 MeasureSpec
+        return MeasureSpec.makeMeasureSpec(resultSize, resultMode);
+    }
+```
+
+子View 的 MeasureSpec 确定就是上述过程，这个过程可用下图表示
+
+![img](https://pic4.zhimg.com/80/v2-bfb81487a00e9a2251c56f5ee0ebbac9_720w.jpg)
+
+理解这个图只需要注意下面几点 - 只要子 View 是 xxdp 的，不管父View 是什么模式，子 View 都是使用自己的指定的大小 childDimension. - 如果父 View 是 确定的 (EXACTLY)，那么 子View 是 MATCH_PARENT 也就是充满父 View 的话，子View 也是确定的 EXACTLY ；如果子 View 是 WRAP_CONTENT，那么子 View 就是不确定的，但是不能超过父 View 的大小，因此子View 就是 AT_MOST 。 - 如果父 View 是不确定的 (AT_MOST )，那么不管子View 是 MATCH_PARENT 还是 WRAP_CONTENT ，子 View 都是不确定的。 - 如果父 View 是未指定的 (UNSPECIFIED)，那么子 View 也是未指定的，size 也就没意义，即为 0 。
+
+### (二).三个流程
+
+View 的三个流程都都是从 ViewRootImpl 的 performTraversals 开始的，而且都是从 DecorView 开始的，这里就不对具体的情况进行梳理，而是从宏观的角度却分析，三个流程是如果在 ViewGroup 到其中的子View 中进行工作的。
+
+### 1.measure
+
+```text
+private void performTraversals() {
+    ...
+    int childWidthMeasureSpec = getRootMeasureSpec(mWidth, lp.width);
+    int childHeightMeasureSpec = getRootMeasureSpec(mHeight, lp.height);
+    ...
+    performMeasure(childWidthMeasureSpec, childHeightMeasureSpec);
+    ...
+
+    }
+private static int getRootMeasureSpec(int windowSize, int rootDimension) {
+        int measureSpec;
+        switch (rootDimension) {
+
+        case ViewGroup.LayoutParams.MATCH_PARENT:
+            // Window can't resize. Force root view to be windowSize.
+            measureSpec = MeasureSpec.makeMeasureSpec(windowSize, MeasureSpec.EXACTLY);
+            break;
+        case ViewGroup.LayoutParams.WRAP_CONTENT:
+            // Window can resize. Set max size for root view.
+            measureSpec = MeasureSpec.makeMeasureSpec(windowSize, MeasureSpec.AT_MOST);
+            break;
+        default:
+            // Window wants to be an exact size. Force root view to be that size.
+            measureSpec = MeasureSpec.makeMeasureSpec(rootDimension, MeasureSpec.EXACTLY);
+            break;
+        }
+        return measureSpec;
+    }
+```
+
+在上述过程中,因为第一个 measureSpec 的产生总是布满全屏的, 即 measureSpec 是确定的 EXACTLY, size 就为屏幕大小.在 performMeasure 就会开始对 DecorView (也就是一个 ViewGroup ) 进行测量.
+
+```text
+private void performMeasure(int childWidthMeasureSpec, int childHeightMeasureSpec) {
+        if (mView == null) {
+            return;
+        }
+        Trace.traceBegin(Trace.TRACE_TAG_VIEW, "measure");
+        try {
+        //对 DecorView 开始测量
+            mView.measure(childWidthMeasureSpec, childHeightMeasureSpec);
+        } finally {
+            Trace.traceEnd(Trace.TRACE_TAG_VIEW);
+        }
+    }
+```
+
+因为 ViewGroup 继承自 View ,首先看 View 的 measure
+
+```text
+public final void measure(int widthMeasureSpec, int heightMeasureSpec) {
+        ...
+        if (cacheIndex < 0 || sIgnoreMeasureCache) {
+            // measure ourselves, this should set the measured dimension flag back
+            onMeasure(widthMeasureSpec, heightMeasureSpec);
+            mPrivateFlags3 &= ~PFLAG3_MEASURE_NEEDED_BEFORE_LAYOUT;
+        }
+        ...
+
+    }
+protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+    //测量自己的大小,一旦完成,View 的测量也就结束,这是 View 默认的方法,具体不同的 View 会有不同的测量方式.
+        setMeasuredDimension(getDefaultSize(getSuggestedMinimumWidth(), widthMeasureSpec),
+                getDefaultSize(getSuggestedMinimumHeight(), heightMeasureSpec));
+    }
+```
+
+在 View 中 measure 是一个 final 方法,因此不能被重写,在里面会调用 onMeasure 方法,这个方法就可以被重写,接下看 具体的某一个的 ViewGroup ( FrameLayout )中的这个方法.
+
+```text
+@Override
+    protected void onMeasure(int widthMeasureSpec, int heightMeasureSpec) {
+        int count = getChildCount();
+        ...
+
+        for (int i = 0; i < count; i++) {
+            final View child = getChildAt(i);
+            if (mMeasureAllChildren || child.getVisibility() != GONE) {
+                measureChildWithMargins(child, widthMeasureSpec, 0, heightMeasureSpec, 0);
+                ...
+            }
+        }
+        ...
+         setMeasuredDimension(resolveSizeAndState(maxWidth, widthMeasureSpec, childState),
+                resolveSizeAndState(maxHeight, heightMeasureSpec,
+                        childState << MEASURED_HEIGHT_STATE_SHIFT));
+        ...
+    }
+```
+
+在 FrameLayout 中的 onMeasure 首先会对去调用 measureChildWithMargins 去计算自己的 MeasureSpec 然后就去测量子 View 的大小,等所有的子 View 测量好了,就会测量自己的的大小.而子 View 会重复这个两个方法,最后完成所有 View 的 测量.这个流程如图所示:
+
+
+
+![img](https://pic2.zhimg.com/80/v2-cd1d5f8318fa58cf60fb0458a32aa312_720w.jpg)
+
+
+
+### 2.layout
+
+```text
+private void performLayout(WindowManager.LayoutParams lp, int desiredWindowWidth,
+            int desiredWindowHeight) {
+        mLayoutRequested = false;
+        mScrollMayChange = true;
+        mInLayout = true;
+
+        final View host = mView;
+        ...
+
+        host.layout(0, 0, host.getMeasuredWidth(), host.getMeasuredHeight());
+
+        ...
+    }
+```
+
+在 performLayout 会直接 调用 host 的 layout ,这个 host 实际上就是 DecorView ,DecorView 是一个 ViewGroup ,首先看 ViewGroup 的 layout 方法.
+
+```text
+@Override
+    public final void layout(int l, int t, int r, int b) {
+        ...
+        super.layout(l, t, r, b);
+        ...
+    }
+@Override
+    protected abstract void onLayout(boolean changed,
+            int l, int t, int r, int b);
+```
+
+在 ViewGroup 中 layout 是一个 final 的方法,在里面会调用父类的layout 方法,也就是 View 的 layout 方法.这里先说明 onLayout 方法,在这里是一个抽象方法,因为不同的 ViewGroup 对子 View 的位置安排是不一样的,因此具体的 onLayout 需要具体的继承类去实现.先看 View 中的 layout 方法
+
+```text
+@SuppressWarnings({"unchecked"})
+    public void layout(int l, int t, int r, int b) {
+
+        int oldL = mLeft;
+        int oldT = mTop;
+        int oldB = mBottom;
+        int oldR = mRight;
+        //setFrame 确定自己的位置
+        boolean changed = isLayoutModeOptical(mParent) ?
+                setOpticalFrame(l, t, r, b) : setFrame(l, t, r, b);
+        ....
+
+        if (changed || (mPrivateFlags & PFLAG_LAYOUT_REQUIRED) == PFLAG_LAYOUT_REQUIRED) {
+        //调用 onLayout
+        onLayout(changed, l, t, r, b);
+
+       ...
+    }
+```
+
+首先在 layout 方法中会确定自己的位置,即 left,top,bottom,right 这个四个属性,接着就会调用 onLayout ,如果这是一个 View,那么 onLayout 就是一个空方法,如果这是一个 ViewGroup ,那么在这方法内就会去确定 子View 的位置.比如 FrameLayout 中.
+
+```text
+@Override
+    protected void onLayout(boolean changed, int left, int top, int right, int bottom) {
+        layoutChildren(left, top, right, bottom, false /* no force left gravity */);
+    }
+
+    void layoutChildren(int left, int top, int right, int bottom, boolean forceLeftGravity) {
+
+        for (int i = 0; i < count; i++) {
+            final View child = getChildAt(i);
+            ...
+            ...
+             child.layout(childLeft, childTop, childLeft + width, childTop + height);
+            }
+      }
+```
+
+这部分的流程如图:
+
+
+
+![img](https://pic3.zhimg.com/80/v2-ebf251633b0c67ec86d5d9d58efc7053_720w.jpg)
+
+
+
+### 3.draw
+
+draw 的绘制基本就包含五个步骤: - 绘制背景 - 绘制自己的内容 - 绘制子 View - 绘制foreground，比如滚动条 - 绘制一些高光
+
+这个过程对于 View 和 ViewGroup 是一样的,只不过 View 中 不会绘制自己的子 View ,因此是个 dispatchDraw(canvas) 在这里是个空方法.具体的流程如图:
+
+
+
+![img](https://pic3.zhimg.com/80/v2-0e940084dc10660c06a408db427a75be_720w.jpg)
 
