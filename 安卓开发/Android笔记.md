@@ -824,8 +824,6 @@ public final void layout(int l, int t, int r, int b) {
 
 2、回调onLayout，对于View来说，onLayout只是一个空实现，一般情况下我们也不需要重载该函数,：
 
-
-
 ```java
 protected void onLayout(boolean changed, int left, int top, int right, int bottom) {  
 
@@ -961,8 +959,6 @@ private void drawBackground(Canvas canvas) {
 **第4步 对当前View的所有子View进行绘制**
  dispatchDraw(canvas) 方法是用来绘制子View的，View.java 的dispatchDraw()方法是一个空方法,因为View没有子View,不需要实现dispatchDraw ()方法，ViewGroup就不一样了，它实现了dispatchDraw ()方法：
 
-
-
 ```java
 @Override
  protected void dispatchDraw(Canvas canvas) {
@@ -1001,271 +997,321 @@ private void drawBackground(Canvas canvas) {
 
 #### 7. View事件分发机制 
 
-在Android开发中，事件分发机制是一块Android比较重要的知识体系，了解并熟悉整套的分发机制有助于更好的分析各种点击滑动失效问题，更好去扩展控件的事件功能和开发自定义控件，同时事件分发机制也是Android面试必问考点之一，如果你能把下面的一些事件分发图当场画出来肯定加分不少。废话不多说，总结一句:**事件分发机制很重要**。
+> 在android开发中会经常遇到滑动冲突（比如ScrollView或是SliddingMenu与ListView的嵌套）的问题，需要我们深入的了解android事件响应机制才能解决，事件响应机制已经是android开发者必不可少的知识。
 
-##### [1] Android 事件分发流
+##### [1] 涉及到事件响应的常用方法构成
 
-关于Android 事件分发机制网上的博文很多，但是很多都是写个Demo然后贴一下输出的Log或者拿源码分析，然后一堆的注释和说明，如果用心的去看肯定是收获不少但是确实很难把整个流程说清和记住。曾经也是拼命想记住整个流程，但是一段时间又忘了，最后觉得分析这种问题和事件流的走向，一张图来解释和说明会清晰很多，下面我根据画的一张事件分发流程图,说明的事件从用户点击之后，在不同函数不同返回值的情况的最终走向。
+　　用户在手指与屏幕接触过程中通过**MotionEvent对象**产生一系列事件，它有四种状态： 　　
 
-![img](https:////upload-images.jianshu.io/upload_images/966283-b9cb65aceea9219b.png?imageMogr2/auto-orient/strip|imageView2/2/w/885/format/webp)
+- MotionEvent.ACTION_DOWN：手指按下屏幕的瞬间（一切事件的开始）
+- MotionEvent.ACTION_MOVE：手指在屏幕上移动
+- MotionEvent.ACTION_UP：手指离开屏幕瞬间
+- MotionEvent.ACTION_CANCEL：取消手势，一般由程序产生，不会由用户产生
 
-图 1.
+　　Android中的事件onClick, onLongClick，onScroll, onFling等等，都是由许多个Touch事件构成的（一个ACTION_DOWN， n个ACTION_MOVE，1个ACTION_UP）。
 
-**注：**
+　　android 事件响应机制是先 **分发**（先由外部的View接收，然后依次传递给其内层的最小View）再 **处理** （从最小View单元（事件源）开始依次向外层传递。）的形式实现的。
 
-> - 仔细看的话，图分为3层，从上往下依次是Activity、ViewGroup、View
+　　复杂性表现在：可以控制每层事件是否继续传递（分发和拦截协同实现），以及事件的具体消费（事件分发也具有事件消费能力）。
 
-- 事件从左上角那个白色箭头开始，由Activity的dispatchTouchEvent做分发
-- 箭头的上面字代表方法返回值，（return true、return false、return super.xxxxx(),super 的意思是调用父类实现。
-- dispatchTouchEvent和 onTouchEvent的框里有个【**true---->消费**】的字，表示的意思是如果方法返回true，那么代表事件就此消费，不会继续往别的地方传了，事件终止。
-- 目前所有的图的事件是针对ACTION_DOWN的，对于ACTION_MOVE和ACTION_UP我们最后做分析。
-- 之前图中的Activity 的dispatchTouchEvent 有误（图已修复），只有return  super.dispatchTouchEvent(ev) 才是往下走，返回true 或者 false 事件就被消费了（终止传递）。
+##### [2] android事件处理涉及到的三个重要函数
 
-仔细看整个图，我们得出事件流 走向的几个结论（希望读者专心的看下图 1，多看几遍，脑子有比较清晰的概念。）
- 1、**如果事件不被中断，整个事件流向是一个类U型图**，我们来看下这张图，可能更能理解U型图的意思。
+> **事件分发：public boolean dispatchTouchEvent(MotionEvent ev)，用来分派事件**
 
-![img](https:////upload-images.jianshu.io/upload_images/966283-d01a5845f7426097.png?imageMogr2/auto-orient/strip|imageView2/2/w/874/format/webp)
+当有监听到事件时，首先由Activity进行捕获，进入事件分发处理流程。（因为activity没有事件拦截，View和ViewGroup有）会将事件传递给最外层View的dispatchTouchEvent(MotionEventev)方法，该方法对事件进行分发。 　　
 
-图 2.
+- return true：表示该View内部消化掉了所有事件。
+- return false：事件在本层不再继续进行分发，并交由**上层**控件的onTouchEvent方法进行消费（如果本层控件已经是Activity，那么事件将被系统消费或处理）。　
+- 如果事件分发返回系统默认的 super.dispatchTouchEvent(ev)，事件将分发给本层的事件拦截onInterceptTouchEvent 方法进行处理
 
-所以如果我们没有对控件里面的方法进行重写或更改返回值，而直接用super调用父类的默认实现，那么整个事件流向应该是从Activity---->ViewGroup--->View 从上往下调用dispatchTouchEvent方法，一直到叶子节点（View）的时候，再由View--->ViewGroup--->Activity从下往上调用onTouchEvent方法。
+```csharp
+public boolean dispatchTouchEvent(MotionEvent event) {
+            boolean result = false;
+            ListenerInfo li = mListenerInfo;
+            if (li != null && li.mOnTouchListener != null
+                    && (mViewFlags & ENABLED_MASK) == ENABLED
+                    && li.mOnTouchListener.onTouch(this, event)) {
+                result = true;
+            }
 
-**2、dispatchTouchEvent 和 onTouchEvent 一旦return true,事件就停止传递了（到达终点）（没有谁能再收到这个事件）**。看下图中只要return true事件就没再继续传下去了，**对于return true我们经常说事件被消费了，消费了的意思就是事件走到这里就是终点，不会往下传，没有谁能再收到这个事件了**。
-
-
-
-![img](https:////upload-images.jianshu.io/upload_images/966283-84c37551ad520641.png?imageMogr2/auto-orient/strip|imageView2/2/w/908/format/webp)
-
-图 3.
-
-
-**3、dispatchTouchEvent 和 onTouchEvent return false的时候事件都回传给父控件的onTouchEvent处理。**
-
-
-
-![img](https:////upload-images.jianshu.io/upload_images/966283-6bc8e2795a30f98f.png?imageMogr2/auto-orient/strip|imageView2/2/w/893/format/webp)
-
-图 4.
-
-
-
-看上图深蓝色的线，对于返回false的情况，事件都是传给父控件onTouchEvent处理。
-
-> - **对于dispatchTouchEvent 返回 false 的含义应该是：事件停止往子View传递和分发同时开始往父控件回溯（父控件的onTouchEvent开始从下往上回传直到某个onTouchEvent return true），事件分发机制就像递归，return false 的意义就是递归停止然后开始回溯。**
-
-- **对于onTouchEvent return false 就比较简单了，它就是不消费事件，并让事件继续往父控件的方向从下往上流动。**
-
-**4、dispatchTouchEvent、onTouchEvent、onInterceptTouchEvent
- ViewGroup 和View的这些方法的默认实现就是会让整个事件安装U型完整走完，所以 return super.xxxxxx() 就会让事件依照U型的方向的完整走完整个事件流动路径），中间不做任何改动，不回溯、不终止，每个环节都走到。**
-
-![img](https:////upload-images.jianshu.io/upload_images/966283-7f3ab9e7e7a1f0a2.png?imageMogr2/auto-orient/strip|imageView2/2/w/641/format/webp)
-
-Paste_Image.png
-
-
-
-所以如果看到方法return super.xxxxx() 那么事件的下一个流向就是走U型下一个目标，稍微记住上面这张图，你就能很快判断出下一个走向是哪个控件的哪个函数。
- 5、onInterceptTouchEvent 的作用
-
-
-
-![img](https:////upload-images.jianshu.io/upload_images/966283-403f6e8b820f71f1.png?imageMogr2/auto-orient/strip|imageView2/2/w/893/format/webp)
-
-图 5.
-
-Intercept 的意思就拦截，每个ViewGroup每次在做分发的时候，问一问拦截器要不要拦截（也就是问问自己这个事件要不要自己来处理）如果要自己处理那就在onInterceptTouchEvent方法中 return true就会交给自己的onTouchEvent的处理，如果不拦截就是继续往子控件往下传。**默认是不会去拦截的，因为子View也需要这个事件，所以onInterceptTouchEvent拦截器return super.onInterceptTouchEvent()和return false是一样的，是不会拦截的，事件会继续往子View的dispatchTouchEvent传递**。
-
-6、ViewGroup 和View 的dispatchTouchEvent方法返回super.dispatchTouchEvent()的时候事件流走向。
-
-
-
-![img](https:////upload-images.jianshu.io/upload_images/966283-4edf17b789cd047f.png?imageMogr2/auto-orient/strip|imageView2/2/w/819/format/webp)
-
-图 6
-
-首先看下ViewGroup 的dispatchTouchEvent，之前说的return true是终结传递。return false 是回溯到父View的onTouchEvent，**然后ViewGroup怎样通过dispatchTouchEvent方法能把事件分发到自己的onTouchEvent处理呢，return true和false 都不行，那么只能通过Interceptor把事件拦截下来给自己的onTouchEvent，所以ViewGroup dispatchTouchEvent方法的super默认实现就是去调用onInterceptTouchEvent，记住这一点**。
- 那么对于**View**的dispatchTouchEvent return super.dispatchTouchEvent()的时候呢事件会传到哪里呢，很遗憾View没有拦截器。**但是同样的道理return true是终结。return false 是回溯会父类的onTouchEvent，怎样把事件分发给自己的onTouchEvent 处理呢，那只能return super.dispatchTouchEvent,View类的dispatchTouchEvent（）方法默认实现就是能帮你调用View自己的onTouchEvent方法的。**
-
-说了这么多，不知道有说清楚没有，我这边最后总结一下：
-
-- 对于 dispatchTouchEvent，onTouchEvent，return true是终结事件传递。return false 是回溯到父View的onTouchEvent方法。
-- ViewGroup 想把自己分发给自己的onTouchEvent，需要拦截器onInterceptTouchEvent方法return true 把事件拦截下来。
-- ViewGroup 的拦截器onInterceptTouchEvent 默认是不拦截的，所以return super.onInterceptTouchEvent()=return false；
-- View 没有拦截器，为了让View可以把事件分发给自己的onTouchEvent，View的dispatchTouchEvent默认实现（super）就是把事件分发给自己的onTouchEvent。
-
-ViewGroup和View 的dispatchTouchEvent 是做事件分发，那么这个事件可能分发出去的四个目标
-
-> 注：------> 后面代表事件目标需要怎么做。
->  1、 自己消费，终结传递。------->return true ；
->  2、 给自己的onTouchEvent处理-------> 调用super.dispatchTouchEvent()系统默认会去调用 onInterceptTouchEvent，在onInterceptTouchEvent return true就会去把事件分给自己的onTouchEvent处理。
->  3、 传给子View------>调用super.dispatchTouchEvent()默认实现会去调用 onInterceptTouchEvent 在onInterceptTouchEvent return false，就会把事件传给子类。
->  4、 不传给子View，事件终止往下传递，事件开始回溯，从父View的onTouchEvent开始事件从下到上回归执行每个控件的onTouchEvent------->return false；
->  **注：** 由于View没有子View所以不需要onInterceptTouchEvent 来控件是否把事件传递给子View还是拦截，所以View的事件分发调用super.dispatchTouchEvent()的时候默认把事件传给自己的onTouchEvent处理（相当于拦截），对比ViewGroup的dispatchTouchEvent 事件分发，View的事件分发没有上面提到的4个目标的第3点。
-
-ViewGroup和View的onTouchEvent方法是做事件处理的，那么这个事件只能有两个处理方式：
-
-> 1、自己消费掉，事件终结，不再传给谁----->return true;
->  2、继续从下往上传，不消费事件，让父View也能收到到这个事件----->return false;View的默认实现是不消费的。所以super==false。
-
-ViewGroup的onInterceptTouchEvent方法对于事件有两种情况：
-
-> 1、拦截下来，给自己的onTouchEvent处理--->return true;
->  2、不拦截，把事件往下传给子View---->return false,ViewGroup默认是不拦截的，所以super==false；
-
-##### [2] 关于ACTION_MOVE 和 ACTION_UP
-
-上面讲解的都是针对ACTION_DOWN的事件传递，ACTION_MOVE和ACTION_UP在传递的过程中并不是和ACTION_DOWN 一样，你在执行ACTION_DOWN的时候返回了false，后面一系列其它的action就不会再得到执行了。简单的说，就是当dispatchTouchEvent在进行事件分发的时候，只有前一个事件（如ACTION_DOWN）返回true，才会收到ACTION_MOVE和ACTION_UP的事件。具体这句话很多博客都说了，但是具体含义是什么呢？我们来看一下下面的具体分析。
-
-上面提到过了，事件如果不被打断的话是会不断往下传到叶子层（View），然后又不断回传到Activity，dispatchTouchEvent 和 onTouchEvent 可以通过return true 消费事件，终结事件传递，而onInterceptTouchEvent 并不能消费事件，它相当于是一个分叉口起到分流导流的作用，ACTION_MOVE和ACTION_UP 会在哪些函数被调用，之前说了并不是哪个函数收到了ACTION_DOWN，就会收到 ACTION_MOVE 等后续的事件的。
- 下面通过几张图看看不同场景下，ACTION_MOVE事件和ACTION_UP事件的具体走向并总结一下规律。
-
-**1、我们在ViewGroup1 的dispatchTouchEvent 方法返回true消费这次事件**
-
-ACTION_DOWN 事件从（Activity的dispatchTouchEvent）--------> （ViewGroup1 的dispatchTouchEvent） 后结束传递，事件被消费（如下图红色的箭头代码ACTION_DOWN 事件的流向）。
-
-
-
-```rust
-//打印日志
-Activity | dispatchTouchEvent --> ACTION_DOWN 
-ViewGroup1 | dispatchTouchEvent --> ACTION_DOWN
----->消费
+            if (!result && onTouchEvent(event)) {
+                result = true;
+            }
+    }
 ```
 
-![img](https:////upload-images.jianshu.io/upload_images/966283-59e3eb0d827f105c.png?imageMogr2/auto-orient/strip|imageView2/2/w/743/format/webp)
+> **事件拦截：public boolean onInterceptTouchEvent(MotionEvent ev)**
 
-在这种场景下ACTION_MOVE和ACTION_UP 将如何呢，看下面的打出来的日志
+- return true  ：表示将事件进行拦截，并将拦截到的事件交由本层控件 的 onTouchEvent 进行处理；
+- return false  ：则表示不对事件进行拦截，事件得以成功分发到子View。并由子View的dispatchTouchEvent进行处理。　
+- 如果返回super.onInterceptTouchEvent(ev)，默认表示拦截该事件，并将事件传递给当前View的onTouchEvent方法，和return true一样。
 
+> **事件响应：public boolean onTouchEvent(MotionEvent ev)**
 
+　　在dispatchTouchEvent（事件分发）返回super.dispatchTouchEvent(ev)并且onInterceptTouchEvent（事件拦截返回true或super.onInterceptTouchEvent(ev)的情况下，那么事件会传递到onTouchEvent方法，该方法对事件进行响应。
 
-```rust
-Activity | dispatchTouchEvent --> ACTION_MOVE 
-ViewGroup1 | dispatchTouchEvent --> ACTION_MOVE
-----
-TouchEventActivity | dispatchTouchEvent --> ACTION_UP 
-ViewGroup1 | dispatchTouchEvent --> ACTION_UP
-----
+- 如果return true，表示onTouchEvent处理完事件后消费了此次事件。此时事件终结；
+- 如果return fasle，则表示不响应事件，那么该事件将会不断向上层View的onTouchEvent方法传递，直到某个View的onTouchEvent方法返回true，如果到了最顶层View还是返回false，那么认为该事件不消耗，则在同一个事件系列中，当前View无法再次接收到事件，该事件会交由Activity的onTouchEvent进行处理；　　
+- 如果return super.dispatchTouchEvent(ev)，则表示不响应事件，结果与return false一样。
+
+~~~java
+public boolean onTouchEvent(MotionEvent event) {
+            switch (action) {
+                case MotionEvent.ACTION_UP:
+                     performClickInternal();
+                break;
+            }
+    }
+~~~
+
+> 从以上过程中可以看出，dispatchTouchEvent无论返回true还是false，事件都不再进行分发，只有当其返回super.dispatchTouchEvent(ev)，才表明其具有向下层分发的愿望，但是是否能够分发成功，则需要经过事件拦截onInterceptTouchEvent的审核。事件是否向上传递处理是由onTouchEvent的返回值决定的。
+
+[![这里写图片描述](https://camo.githubusercontent.com/d0cf3f58f4a42af93085a1b9ab45baa5a45450a1/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313630343238313631313034333339)](https://camo.githubusercontent.com/d0cf3f58f4a42af93085a1b9ab45baa5a45450a1/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313630343238313631313034333339)
+
+（图来自网络）
+
+##### [3] View源码分析
+
+　　Android中ImageView、textView、Button等继承于View但没有重写的dispatchTouchEvent方法，所以都用的View的该方法进行事件分发。看View重要函数部分源码：
+
+```java
+public boolean dispatchTouchEvent(MotionEvent event) {
+//返回true,表示该View内部消化掉了所有事件。返回false，表示View内部只处理了ACTION_DOWN事件，事件继续传递，向上级View(ViewGroup)传递。
+
+    if (mOnTouchListener != null && (mViewFlags & ENABLED_MASK) == ENABLED &&
+            mOnTouchListener.onTouch(this, event)) {
+  //此处的onTouch方式就是回调的我们注册OnTouchListener时重写的onTouch()方法
+        return true;
+    }
+    return onTouchEvent(event);
+}
 ```
 
-下图中
- 红色的箭头代表ACTION_DOWN 事件的流向
- 蓝色的箭头代表ACTION_MOVE 和 ACTION_UP 事件的流向
+　首先进行三个条件的判断：
 
+（1）查看是否给button设置了OnTouchListener()事件；
 
+（2）控件是否Enable；（控件默认都是enable的）
 
-![img](https:////upload-images.jianshu.io/upload_images/966283-1784be236d2060fb.png?imageMogr2/auto-orient/strip|imageView2/2/w/727/format/webp)
+（3）button里面实现的OnTouchListener监听里的onTouch()方法是否返回true；
 
-**2、我们在ViewGroup2 的dispatchTouchEvent 返回true消费这次事件**
+　如果条件都满足，则该事件被消耗掉，不再进入onTouchEvent中处理。否则将事件将交给onTouchEvent方法处理。
 
-
-
-```rust
-Activity | dispatchTouchEvent --> ACTION_DOWN 
-ViewGroup1 | dispatchTouchEvent --> ACTION_DOWN
-ViewGroup1 | onInterceptTouchEvent --> ACTION_DOWN
-ViewGroup2 | dispatchTouchEvent --> ACTION_DOWN
----->消费
-Activity | dispatchTouchEvent --> ACTION_MOVE 
-ViewGroup1 | dispatchTouchEvent --> ACTION_MOVE
-ViewGroup1 | onInterceptTouchEvent --> ACTION_MOVE
-ViewGroup2 | dispatchTouchEvent --> ACTION_MOVE
-----
-TouchEventActivity | dispatchTouchEvent --> ACTION_UP 
-ViewGroup1 | dispatchTouchEvent --> ACTION_UP
-ViewGroup1 | onInterceptTouchEvent --> ACTION_UP
-ViewGroup2 | dispatchTouchEvent --> ACTION_UP
-----
+```java
+ public boolean onTouchEvent(MotionEvent event) {
+    ...
+ 
+   /＊ 当前onTouch的组件必须是可点击的比如Button，ImageButton等等，此处CLICKABLE为true，才会进入if方法，最后返回true。
+ 如果是ImageView、TexitView这些默认为不可点击的View,此处CLICKABLE为false，最后返回false。当然会有特殊情况，如果给这些View设置了onClick监听器，此处CLICKABLE也将为true　　＊／
+ 
+    if (((viewFlags & CLICKABLE) == CLICKABLE ||  
+            (viewFlags & LONG_CLICKABLE) == LONG_CLICKABLE)) {
+        switch (event.getAction()) {
+            case MotionEvent.ACTION_UP:
+                ...
+                            if (!post(mPerformClick)) {
+                                performClick();// 实际就是回调了我们注册的OnClickListener中重新的onClick()方法
+                            }
+                 ...
+                break;
+ 
+            case MotionEvent.ACTION_DOWN:
+               ...
+                break;
+ 
+            case MotionEvent.ACTION_CANCEL:
+                ...
+                break;
+ 
+            case MotionEvent.ACTION_MOVE:
+               ...
+                break;
+        }
+        return true;
+    }
+ 
+    return false;
+}
+public boolean performClick() {
+    ...
+ ／／
+    if (li != null && li.mOnClickListener != null) {
+        ...
+        li.mOnClickListener.onClick(this);
+        return true;
+    }
+ 
+    return false;
+}
+ public void setOnClickListener(OnClickListener l) {
+    if (!isClickable()) {
+        setClickable(true);
+    }
+    getListenerInfo().mOnClickListener = l;
+}
 ```
 
-红色的箭头代表ACTION_DOWN 事件的流向
- 蓝色的箭头代表ACTION_MOVE 和 ACTION_UP 事件的流向
+> 只有我们注册OnTouchListener时重写的 onTouch()方法中
+>
+> 返回false  —> 执行onTouchEvent方法 —>  导致onClick()回调方法执行　
 
+返回true —> onTouchEvent方法不执行 —>  导致onClick()回调方法不会执行
 
+##### [4] ViewGroup源码分析
 
-![img](https:////upload-images.jianshu.io/upload_images/966283-f1d9edbc21e955c8.png?imageMogr2/auto-orient/strip|imageView2/2/w/763/format/webp)
+　　Android中诸如LinearLayout等的五大布局控件，都是继承自ViewGroup，而ViewGroup本身是继承自View，所以ViewGroup的事件处理机制对这些控件都有效。
 
-Paste_Image.png
+　　 部分源码：
 
-**3、我们在View 的dispatchTouchEvent 返回true消费这次事件**
- 这个我不就画图了，效果和在ViewGroup2 的dispatchTouchEvent return true的差不多，同样的收到ACTION_DOWN 的dispatchTouchEvent函数都能收到 ACTION_MOVE和ACTION_UP。
- **所以我们就基本可以得出结论如果在某个控件的dispatchTouchEvent 返回true消费终结事件，那么收到ACTION_DOWN 的函数也能收到 ACTION_MOVE和ACTION_UP。**
+```java
+public boolean dispatchTouchEvent(MotionEvent ev) {  
+       final int action = ev.getAction();  
+       final float xf = ev.getX();  
+       final float yf = ev.getY();  
+       final float scrolledXFloat = xf + mScrollX;  
+       final float scrolledYFloat = yf + mScrollY;  
+       final Rect frame = mTempRect;  
+  
+       //这个值默认是false, 然后我们可以通过requestDisallowInterceptTouchEvent(boolean disallowIntercept)方法  
+       //来改变disallowIntercept的值  
+       boolean disallowIntercept = (mGroupFlags & FLAG_DISALLOW_INTERCEPT) != 0;  
+  
+       //这里是ACTION_DOWN的处理逻辑  
+       if (action == MotionEvent.ACTION_DOWN) {  
+        //清除mMotionTarget, 每次ACTION_DOWN都很设置mMotionTarget为null  
+           if (mMotionTarget != null) {  
+               mMotionTarget = null;  
+           }  
+  
+           //disallowIntercept默认是false, 就看ViewGroup的onInterceptTouchEvent()方法  
+           if (disallowIntercept || !onInterceptTouchEvent(ev)) {  //第一点
+               ev.setAction(MotionEvent.ACTION_DOWN);  
+               final int scrolledXInt = (int) scrolledXFloat;  
+               final int scrolledYInt = (int) scrolledYFloat;  
+               final View[] children = mChildren;  
+               final int count = mChildrenCount;  
+               //遍历其子View  
+               for (int i = count - 1; i >= 0; i--) {  //第二点
+                   final View child = children[i];  
+                     
+                   //如果该子View是VISIBLE或者该子View正在执行动画, 表示该View才  
+                   //可以接受到Touch事件  
+                   if ((child.mViewFlags & VISIBILITY_MASK) == VISIBLE  
+                           || child.getAnimation() != null) {  
+                    //获取子View的位置范围  
+                       child.getHitRect(frame);  
+                         
+                       //如Touch到屏幕上的点在该子View上面  
+                       if (frame.contains(scrolledXInt, scrolledYInt)) {  
+                           // offset the event to the view's coordinate system  
+                           final float xc = scrolledXFloat - child.mLeft;  
+                           final float yc = scrolledYFloat - child.mTop;  
+                           ev.setLocation(xc, yc);  
+                           child.mPrivateFlags &= ~CANCEL_NEXT_UP_EVENT;  
+                             
+                           //调用该子View的dispatchTouchEvent()方法  
+                           if (child.dispatchTouchEvent(ev))  {  
+                               // 如果child.dispatchTouchEvent(ev)返回true表示  
+                            //该事件被消费了，设置mMotionTarget为该子View  
+                               mMotionTarget = child;  
+                               //直接返回true  
+                               return true;  
+                           }  
+                           // The event didn't get handled, try the next view.  
+                           // Don't reset the event's location, it's not  
+                           // necessary here.  
+                       }  
+                   }  
+               }  
+           }  
+       }  
+  
+       //判断是否为ACTION_UP或者ACTION_CANCEL  
+       boolean isUpOrCancel = (action == MotionEvent.ACTION_UP) ||  
+               (action == MotionEvent.ACTION_CANCEL);  
+  
+       if (isUpOrCancel) {  
+           //如果是ACTION_UP或者ACTION_CANCEL, 将disallowIntercept设置为默认的false  
+        //假如我们调用了requestDisallowInterceptTouchEvent()方法来设置disallowIntercept为true  
+        //当我们抬起手指或者取消Touch事件的时候要将disallowIntercept重置为false  
+        //所以说上面的disallowIntercept默认在我们每次ACTION_DOWN的时候都是false  
+           mGroupFlags &= ~FLAG_DISALLOW_INTERCEPT;  
+       }  
+  
+       // The event wasn't an ACTION_DOWN, dispatch it to our target if  
+       // we have one.  
+       final View target = mMotionTarget;  
+       //mMotionTarget为null意味着没有找到消费Touch事件的View, 所以我们需要调用ViewGroup父类的  
+       //dispatchTouchEvent()方法，也就是View的dispatchTouchEvent()方法  
+       if (target == null) {  
+           // We don't have a target, this means we're handling the  
+           // event as a regular view.  
+           ev.setLocation(xf, yf);  
+           if ((mPrivateFlags & CANCEL_NEXT_UP_EVENT) != 0) {  
+               ev.setAction(MotionEvent.ACTION_CANCEL);  
+               mPrivateFlags &= ~CANCEL_NEXT_UP_EVENT;  
+           }  
+           return super.dispatchTouchEvent(ev);  
+       }  
+  
+       //这个if里面的代码ACTION_DOWN不会执行，只有ACTION_MOVE  
+       //ACTION_UP才会走到这里, 假如在ACTION_MOVE或者ACTION_UP拦截的  
+       //Touch事件, 将ACTION_CANCEL派发给target，然后直接返回true  
+       //表示消费了此Touch事件  
+       if (!disallowIntercept && onInterceptTouchEvent(ev)) {  
+           final float xc = scrolledXFloat - (float) target.mLeft;  
+           final float yc = scrolledYFloat - (float) target.mTop;  
+           mPrivateFlags &= ~CANCEL_NEXT_UP_EVENT;  
+           ev.setAction(MotionEvent.ACTION_CANCEL);  
+           ev.setLocation(xc, yc);  
+             
+           if (!target.dispatchTouchEvent(ev)) {  
+           }  
+           // clear the target  
+           mMotionTarget = null;  
+           // Don't dispatch this event to our own view, because we already  
+           // saw it when intercepting; we just want to give the following  
+           // event to the normal onTouchEvent().  
+           return true;  
+       }  
+  
+       if (isUpOrCancel) {  
+           mMotionTarget = null;  
+       }  
+  
+       // finally offset the event to the target's coordinate system and  
+       // dispatch the event.  
+       final float xc = scrolledXFloat - (float) target.mLeft;  
+       final float yc = scrolledYFloat - (float) target.mTop;  
+       ev.setLocation(xc, yc);  
+  
+       if ((target.mPrivateFlags & CANCEL_NEXT_UP_EVENT) != 0) {  
+           ev.setAction(MotionEvent.ACTION_CANCEL);  
+           target.mPrivateFlags &= ~CANCEL_NEXT_UP_EVENT;  
+           mMotionTarget = null;  
+       }  
+  
+       //如果没有拦截ACTION_MOVE, ACTION_DOWN的话，直接将Touch事件派发给target  
+       return target.dispatchTouchEvent(ev);  
+   }
+```
 
-**4、我们在View 的onTouchEvent 返回true消费这次事件**
- 红色的箭头代表ACTION_DOWN 事件的流向
- 蓝色的箭头代表ACTION_MOVE 和 ACTION_UP 事件的流向
+> 1、dispatchTouchEvent作用：决定事件是否由onInterceptTouchEvent来拦截处理。 返回super.dispatchTouchEvent时，由onInterceptTouchEvent来决定事件的流向 返回false时，会继续分发事件，自己内部只处理了ACTION_DOWN 返回true时，不会继续分发事件，自己内部处理了所有事件（ACTION_DOWN,ACTION_MOVE,ACTION_UP）
 
-![img](https:////upload-images.jianshu.io/upload_images/966283-d53e3f680ba1fdd1.png?imageMogr2/auto-orient/strip|imageView2/2/w/805/format/webp)
+> 2、onInterceptTouchEvent作用：拦截事件，用来决定事件是否传向子View 返回true时，拦截后交给自己的onTouchEvent处理 返回false时，拦截后交给子View来处理
 
+> 3、onTouchEvent作用：事件最终到达这个方法 返回true时，内部处理所有的事件，换句话说，后续事件将继续传递给该view的onTouchEvent()处理 返回false时，事件会向上传递，由onToucEvent来接受，如果最上面View中的onTouchEvent也返回false的话，那么事件就会消失
 
+##### [5] 总结
 
-**5、我们在ViewGroup 2 的onTouchEvent 返回true消费这次事件**
- 红色的箭头代表ACTION_DOWN 事件的流向
- 蓝色的箭头代表ACTION_MOVE 和 ACTION_UP 事件的流向
-
-
-
-![img](https:////upload-images.jianshu.io/upload_images/966283-e1e9739c0826f9f3.png?imageMogr2/auto-orient/strip|imageView2/2/w/806/format/webp)
-
-
-**6、我们在ViewGroup 1 的onTouchEvent 返回true消费这次事件**
- 红色的箭头代表ACTION_DOWN 事件的流向
- 蓝色的箭头代表ACTION_MOVE 和 ACTION_UP 事件的流向
-
-![img](https:////upload-images.jianshu.io/upload_images/966283-e78685608fced6a0.png?imageMogr2/auto-orient/strip|imageView2/2/w/807/format/webp)
-
-
-
-**7、我们在Activity 的onTouchEvent 返回true消费这次事件**
- 红色的箭头代表ACTION_DOWN 事件的流向
- 蓝色的箭头代表ACTION_MOVE 和 ACTION_UP 事件的流向
-
-![img](https:////upload-images.jianshu.io/upload_images/966283-b122baf33744975d.png?imageMogr2/auto-orient/strip|imageView2/2/w/812/format/webp)
-
-
-
-**8、我们在View的dispatchTouchEvent 返回false并且Activity 的onTouchEvent 返回true消费这次事件**
- 红色的箭头代表ACTION_DOWN 事件的流向
- 蓝色的箭头代表ACTION_MOVE 和 ACTION_UP 事件的流向
-
-![img](https:////upload-images.jianshu.io/upload_images/966283-c1840919f1c95447.png?imageMogr2/auto-orient/strip|imageView2/2/w/805/format/webp)
-
-
-
-**9、我们在View的dispatchTouchEvent 返回false并且ViewGroup 1 的onTouchEvent 返回true消费这次事件**
- 红色的箭头代表ACTION_DOWN 事件的流向
- 蓝色的箭头代表ACTION_MOVE 和 ACTION_UP 事件的流向
-
-![img](https:////upload-images.jianshu.io/upload_images/966283-7026c3e2fc1b0fa8.png?imageMogr2/auto-orient/strip|imageView2/2/w/821/format/webp)
-
-
-
-**10、我们在View的dispatchTouchEvent 返回false并且在ViewGroup 2 的onTouchEvent 返回true消费这次事件**
- 红色的箭头代表ACTION_DOWN 事件的流向
- 蓝色的箭头代表ACTION_MOVE 和 ACTION_UP 事件的流向
-
-![img](https:////upload-images.jianshu.io/upload_images/966283-4757fd1879a9ba4e.png?imageMogr2/auto-orient/strip|imageView2/2/w/814/format/webp)
-
-
-
-**11、我们在ViewGroup2的dispatchTouchEvent 返回false并且在ViewGroup1 的onTouchEvent返回true消费这次事件**
- 红色的箭头代表ACTION_DOWN 事件的流向
- 蓝色的箭头代表ACTION_MOVE 和 ACTION_UP 事件的流向
-
-![img](https:////upload-images.jianshu.io/upload_images/966283-1b11afac93b12c53.png?imageMogr2/auto-orient/strip|imageView2/2/w/837/format/webp)
-
-
-
-**12、我们在ViewGroup2的onInterceptTouchEvent 返回true拦截此次事件并且在ViewGroup 1 的onTouchEvent返回true消费这次事件。**
- 红色的箭头代表ACTION_DOWN 事件的流向
- 蓝色的箭头代表ACTION_MOVE 和 ACTION_UP 事件的流向
-
-![img](https:////upload-images.jianshu.io/upload_images/966283-4713e647448ce48f.png?imageMogr2/auto-orient/strip|imageView2/2/w/813/format/webp)
-
-
-
-一下子画了好多图，还有好几种情况就不再画了，相信你也看出规律了，对于在onTouchEvent消费事件的情况：**在哪个View的onTouchEvent 返回true，那么ACTION_MOVE和ACTION_UP的事件从上往下传到这个View后就不再往下传递了，而直接传给自己的onTouchEvent 并结束本次事件传递过程。**
-
-对于ACTION_MOVE、ACTION_UP总结：**ACTION_DOWN事件在哪个控件消费了（return true），  那么ACTION_MOVE和ACTION_UP就会从上往下（通过dispatchTouchEvent）做事件分发往下传，就只会传到这个控件，不会继续往下传，如果ACTION_DOWN事件是在dispatchTouchEvent消费，那么事件到此为止停止传递，如果ACTION_DOWN事件是在onTouchEvent消费的，那么会把ACTION_MOVE或ACTION_UP事件传给该控件的onTouchEvent处理并结束传递。**
+- 如果ViewGroup找到了能够处理该事件的View，则直接交给子View处理，自己的onTouchEvent不会被触发；　
+- 可以通过复写onInterceptTouchEvent(ev)方法，拦截子View的事件（即return true），把事件交给自己处理，则会执行自己对应的onTouchEvent方法。
+- 子View可以通过调用getParent().requestDisallowInterceptTouchEvent(true);  阻止ViewGroup对其MOVE或者UP事件进行拦截；　　
+- 一个点击事件产生后，它的传递过程如下： Activity->Window->View。顶级View接收到事件之后，就会按相应规则去分发事件。如果一个View的onTouchEvent方法返回false，那么将会交给父容器的onTouchEvent方法进行处理，逐级往上，如果所有的View都不处理该事件，则交由Activity的onTouchEvent进行处理。　
+- 如果某一个View开始处理事件，如果他不消耗ACTION_DOWN事件（也就是onTouchEvent返回false），则同一事件序列比如接下来进行ACTION_MOVE，则不会再交给该View处理。
+- ViewGroup默认不拦截任何事件。　
+- 诸如TextView、ImageView这些不作为容器的View，一旦接受到事件，就调用onTouchEvent方法，它们本身没有onInterceptTouchEvent方法。正常情况下，它们都会消耗事件（返回true），除非它们是不可点击的（clickable和longClickable都为false），那么就会交由父容器的onTouchEvent处理。　
+- 点击事件分发过程如下 dispatchTouchEvent—->OnTouchListener的onTouch方法—->onTouchEvent-->OnClickListener的onClick方法。也就是说，我们平时调用的setOnClickListener，优先级是最低的，所以，onTouchEvent或OnTouchListener的onTouch方法如果返回true，则不响应onClick方法...
 
 #### 8. MVC&MVP&MVVM
 
