@@ -149,15 +149,17 @@ progressBar.setSecondaryProgress(30);   //设置第二进度初始数值
 
 #### 4. Android五大存储方式
 
-①　使用SharedPreferences存储数据　
+①　**使用SharedPreferences存储数据**：SharedPreference类提供了一个总体框架，使您可以保存和检索的任何基本数据类型（ boolean, float, int, long, string）的持久键-值对（基于XML文件存储的“key-value”键值对数据）。
 
-②　文件存储数据
+②　**文件存储数据**：当文件被保存在内部存储中时，默认情况下，文件是应用程序私有的，其他应用不能访问。当用户卸载应用程序时这些文件也跟着被删除。
 
-③　 SQLite数据库存储数据
+③　**SQLite数据库存储数据**：**SQLite**是一款轻量级的关系型数据库，它的运算速度非常快，占用资源很少，通常只需要几百K的内存就足够了，因而特别适合在移动设备上使用。
 
-④　使用ContentProvider存储数据
+④　**使用ContentProvider存储数据**：是数据调用者，ContentProvider将数据发布出来，通过ContentResolver对象结合Uri进行调用通过ContentResolver对象可以调用ContentProvider的增删改查。
 
-⑤　网络存储数据
+>Uri（通用资源标识符 Universal Resource Identifer），代表数据操作的地址，每一个ContentProvider发布数据时都会有唯一的地址。
+
+⑤　**网络存储数据**：HttpUrlConnection和HttpClient。
 
 #### 5. hadler机制
 
@@ -173,4 +175,3 @@ progressBar.setSecondaryProgress(30);   //设置第二进度初始数值
 
 #### 11. binder机制 
 
-#### 12.
