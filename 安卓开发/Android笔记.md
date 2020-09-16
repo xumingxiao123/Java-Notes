@@ -997,6 +997,8 @@ private void drawBackground(Canvas canvas) {
 
 #### 7. View事件分发机制 
 
+https://www.jianshu.com/p/238d1b753e64
+
 > 在android开发中会经常遇到滑动冲突（比如ScrollView或是SliddingMenu与ListView的嵌套）的问题，需要我们深入的了解android事件响应机制才能解决，事件响应机制已经是android开发者必不可少的知识。
 
 ##### [1] 涉及到事件响应的常用方法构成
@@ -1016,55 +1018,33 @@ private void drawBackground(Canvas canvas) {
 
 ##### [2] android事件处理涉及到的三个重要函数
 
-> **事件分发：public boolean dispatchTouchEvent(MotionEvent ev)，用来分派事件**
+> > - **public boolean dispatchTouchEvent(MotionEvent event)**
+> >    通过方法名我们不难猜测，它就是事件分发的重要方法。那么很明显，如果一个MotionEvent传递给了View，那么dispatchTouchEvent方法一定会被调用！
+> >    **返回值：表示是否消费了当前事件。可能是View本身的onTouchEvent方法消费，也可能是子View的dispatchTouchEvent方法中消费。返回true表示事件被消费，本次的事件终止。返回false表示View以及子View均没有消费事件，将调用父View的onTouchEvent方法**
+>
+> > - **public boolean onInterceptTouchEvent(MotionEvent ev)**
+> >    事件拦截，当一个ViewGroup在接到MotionEvent事件序列时候，首先会调用此方法判断是否需要拦截。**特别注意，这是ViewGroup特有的方法，View并没有拦截方法**
+> >    **返回值：是否拦截事件传递，返回true表示拦截了事件，那么事件将不再向下分发而是调用View本身的onTouchEvent方法。返回false表示不做拦截，事件将向下分发到子View的dispatchTouchEvent方法。**
+>
+> > - **public boolean onTouchEvent(MotionEvent ev)**
+> >    真正对MotionEvent进行处理或者说消费的方法。在dispatchTouchEvent进行调用。
+> >    **返回值：返回true表示事件被消费，本次的事件终止。返回false表示事件没有被消费，将调用父View的onTouchEvent方法**
+>
+> ~~~java
+>     public boolean dispatchTouchEvent(MotionEvent ev) {
+>         boolean consume = false;//事件是否被消费
+>         if (onInterceptTouchEvent(ev)){//调用onInterceptTouchEvent判断是否拦截事件
+>             consume = onTouchEvent(ev);//如果拦截则调用自身的onTouchEvent方法
+>         }else{
+>             consume = child.dispatchTouchEvent(ev);//不拦截调用子View的dispatchTouchEvent方法
+>         }
+>         return consume;//返回值表示事件是否被消费，true事件终止，false调用父View的onTouchEvent方法
+>     }
+> ~~~
 
-当有监听到事件时，首先由Activity进行捕获，进入事件分发处理流程。（因为activity没有事件拦截，View和ViewGroup有）会将事件传递给最外层View的dispatchTouchEvent(MotionEventev)方法，该方法对事件进行分发。 　　
+ViewGroup是View的子类，也就是说**ViewGroup本身就是一个View**，但是它可以包含子View（当然**子View也可能是一个ViewGroup**），所以不难理解，上面所展示的伪代码表示的是ViewGroup 处理事件分发的流程。而View本身是不存在分发，所以也没有拦截方法（onInterceptTouchEvent），它只能在onTouchEvent方法中进行处理消费或者不消费。
 
-- return true：表示该View内部消化掉了所有事件。
-- return false：事件在本层不再继续进行分发，并交由**上层**控件的onTouchEvent方法进行消费（如果本层控件已经是Activity，那么事件将被系统消费或处理）。　
-- 如果事件分发返回系统默认的 super.dispatchTouchEvent(ev)，事件将分发给本层的事件拦截onInterceptTouchEvent 方法进行处理
-
-```csharp
-public boolean dispatchTouchEvent(MotionEvent event) {
-            boolean result = false;
-            ListenerInfo li = mListenerInfo;
-            if (li != null && li.mOnTouchListener != null
-                    && (mViewFlags & ENABLED_MASK) == ENABLED
-                    && li.mOnTouchListener.onTouch(this, event)) {
-                result = true;
-            }
-
-            if (!result && onTouchEvent(event)) {
-                result = true;
-            }
-    }
-```
-
-> **事件拦截：public boolean onInterceptTouchEvent(MotionEvent ev)**
-
-- return true  ：表示将事件进行拦截，并将拦截到的事件交由本层控件 的 onTouchEvent 进行处理；
-- return false  ：则表示不对事件进行拦截，事件得以成功分发到子View。并由子View的dispatchTouchEvent进行处理。　
-- 如果返回super.onInterceptTouchEvent(ev)，默认表示拦截该事件，并将事件传递给当前View的onTouchEvent方法，和return true一样。
-
-> **事件响应：public boolean onTouchEvent(MotionEvent ev)**
-
-　　在dispatchTouchEvent（事件分发）返回super.dispatchTouchEvent(ev)并且onInterceptTouchEvent（事件拦截返回true或super.onInterceptTouchEvent(ev)的情况下，那么事件会传递到onTouchEvent方法，该方法对事件进行响应。
-
-- 如果return true，表示onTouchEvent处理完事件后消费了此次事件。此时事件终结；
-- 如果return fasle，则表示不响应事件，那么该事件将会不断向上层View的onTouchEvent方法传递，直到某个View的onTouchEvent方法返回true，如果到了最顶层View还是返回false，那么认为该事件不消耗，则在同一个事件系列中，当前View无法再次接收到事件，该事件会交由Activity的onTouchEvent进行处理；　　
-- 如果return super.dispatchTouchEvent(ev)，则表示不响应事件，结果与return false一样。
-
-~~~java
-public boolean onTouchEvent(MotionEvent event) {
-            switch (action) {
-                case MotionEvent.ACTION_UP:
-                     performClickInternal();
-                break;
-            }
-    }
-~~~
-
-> 从以上过程中可以看出，dispatchTouchEvent无论返回true还是false，事件都不再进行分发，只有当其返回super.dispatchTouchEvent(ev)，才表明其具有向下层分发的愿望，但是是否能够分发成功，则需要经过事件拦截onInterceptTouchEvent的审核。事件是否向上传递处理是由onTouchEvent的返回值决定的。
+![img](https://upload-images.jianshu.io/upload_images/2839355-61a4ace684282818.png?imageMogr2/auto-orient/strip|imageView2/2/w/930/format/webp)
 
 [![这里写图片描述](https://camo.githubusercontent.com/d0cf3f58f4a42af93085a1b9ab45baa5a45450a1/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313630343238313631313034333339)](https://camo.githubusercontent.com/d0cf3f58f4a42af93085a1b9ab45baa5a45450a1/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313630343238313631313034333339)
 
