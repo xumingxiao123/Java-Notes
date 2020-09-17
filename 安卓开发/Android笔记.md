@@ -1295,6 +1295,118 @@ public boolean dispatchTouchEvent(MotionEvent ev) {
 
 #### 8. MVC&MVP&MVVM
 
+> 前言：做客户端开发、前端开发，大致都应该听说过这么几个名词MVC、MVP、MVVM，这些架构的思想大多是为了解决界面应用程序复杂的逻辑问题。同时这些框架的核心目的在于，职责分离，不同的层次要做不同的事情。
+
+无论是哪种MV**系列，都涉及到了Model和View，如果单纯的只有Model和View，他们是没有办法一起协同工作的，所以就有了各种MV..的设计模式
+
+**MVXX模式：**
+
+- MVC
+- MVP
+- MVVM
+
+这三种架构模式都是现在比较流行的，在不同的项目中，可能采用不同的架构模式，今天我们就围绕着这三种架构模式的试用场景介绍一下他们的概念，以及异同。
+
+##### [1] MVC
+
+[<img src="https://camo.githubusercontent.com/8de6460e4d41c88ad2cf5432caae6b10f82d196e/687474703a2f2f6c69766f7261732e6769746875622e696f2f626c6f672f6d76632f6d76632d6465702e706e67" alt="img" style="zoom:50%;" />](https://camo.githubusercontent.com/8de6460e4d41c88ad2cf5432caae6b10f82d196e/687474703a2f2f6c69766f7261732e6769746875622e696f2f626c6f672f6d76632f6d76632d6465702e706e67)
+
+**MVC(Model-View-Controller),Model:逻辑模型，View:视图模型，Controller控制器**。简单说这就是一种设计应用程序的思想，目的在于将业务逻辑、数据、界面分离，将业务逻辑聚集到一个部件里面，在改进或者想要定制界面及用户交互时，不需要重写编写业务逻辑。**Controller和View都依赖Model层，Controller和View相互依赖。**
+
+操作的过程：用户在界面上进行操作(例如手机屏幕)，这个时候View会捕捉到用户的操作，然后将这个操作的处理权利交给Controller，Controller会对来自View的数据进行预处理，决定调用哪个Model的接口，然后由Model执行相应的逻辑，当Model变更之后，再利用观察者模式通知View，View通过观察者模式收到Model的消息之后，向Model请求最新的数据，然后更新页面，如下图：
+
+[<img src="https://camo.githubusercontent.com/b89ac314c2fd554e7bf33ba1553e10dd91be44fc/687474703a2f2f6c69766f7261732e6769746875622e696f2f626c6f672f6d76632f6d76632d63616c6c2e706e67" alt="img" style="zoom:50%;" />](https://camo.githubusercontent.com/b89ac314c2fd554e7bf33ba1553e10dd91be44fc/687474703a2f2f6c69766f7261732e6769746875622e696f2f626c6f672f6d76632f6d76632d63616c6c2e706e67)
+
+看似没有什么特别的地方，但是由几个需要特别关注的关键点：
+
+1. View是把控制权交移给Controller，Controller执行应用程序相关的应用逻辑（对来自View数据进行预处理、决定调用哪个Model的接口等等）。
+2. Controller操作Model，Model执行业务逻辑对数据进行处理。但不会直接操作View，可以说它是对View无知的。
+3. View和Model的同步消息是通过观察者模式进行，而同步操作是由View自己请求Model的数据然后对视图进行更新。
+
+需要特别注意的是MVC模式的精髓在于第三点**：Model的更新是通过观察者模式告知View的**，具体表现形式可以是Pub/Sub或者是触发Events。而网上很多对于MVC的描述都没有强调这一点。**通过观察者模式的好处就是：不同的MVC三角关系可能会有共同的Model，一个MVC三角中的Controller操作了Model以后，两个MVC三角的View都会接受到通知，然后更新自己**。保持了依赖同一块Model的不同View显示数据的实时性和准确性。我们每天都在用的观察者模式，在几十年前就已经被大神们整合到MVC的架构当中。
+
+**优点**
+
+1. 首先最重要的一点是多个视图能共享一个模型，同一个模型可以被不同的视图重用，大大提高了代码的可重用性。
+2. 由于MVC的三个模块相互独立，在其中改变一个，其他两个可以保持不变，这样可以把耦合降得很低，这样可以使开发人员可以只关注整个系统中的某一层
+3. 控制器提高了应用程序的灵活性和可配置型。控制器可以用来连接不同的模型和视图去完成用户的需求，这样控制器可以为构造应用程序提供强有力的手段
+
+**缺点**
+
+1. 增加了系统结构的实现的复杂性
+2. 视图与控制器之间的联系过于紧密，视图如果没有控制器的存在，能够做的事情少之又少，这样视图就很难独立应用了
+3. 视图对模型的数据的访问效率过低，因为之间需要多次的调用
+4. View无法组件化，View依赖于特定的Model，如果需要把这个View抽出来用在下一个应用程序复用就比较困难了
+
+##### [2] MVP
+
+Model(Model View Presenter),Model:逻辑模型，View:视图模型，Presenter:接口。
+
+关于MVP的定义：
+
+```
+- MVC的演化版本，让Model和View完全解耦
+- 代码清晰，不过增加了很多类
+```
+
+MVP中的P，是Presenter的含义，和MVC比较类似，都是将用户对View的操作交付给Presenter，Presenter会执行相应的逻辑，在这过程中会操作Model，当Model执行完业务逻辑之后，同样是通过观察者模式把自己的结果传递出去，不过不是告诉View，而是告诉Presenter，Presenter得到消息后，通过View的接口更新页面。
+
+在Android中，我们的View可能仅仅就是个布局文件，它能做的事情少之又少，真正与布局文件进行数据绑定操作的事Activity，所以这样做就使Activity即像View又像Controller。
+
+应用了MVP之后：
+
+```
+- View:对应Activity，负责View的绘制以及与用户交互
+- Model:业务逻辑和实体模型
+- Presenter:负责完成View与Model之间的交互
+```
+
+应用两张图来说明上述内容:
+
+[<img src="https://camo.githubusercontent.com/e2b5d4479225546bfafa3702069e7a7e035e5e48/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313530363232323132383335353534" alt="img" style="zoom:50%;" />](https://camo.githubusercontent.com/e2b5d4479225546bfafa3702069e7a7e035e5e48/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313530363232323132383335353534)
+
+[<img src="https://camo.githubusercontent.com/ab02cad1c475e9abde495cec526bc6744c3eceae/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313530363232323132383536303131" alt="img" style="zoom:50%;" />](https://camo.githubusercontent.com/ab02cad1c475e9abde495cec526bc6744c3eceae/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313530363232323132383536303131)
+
+**MVP的优点**
+
+1. 便于测试。Presenter对View是通过接口进行，在对Presenter进行不依赖UI环境的单元测试的时候。可以通过Mock一个View对象，这个对象只需要实现了View的接口即可。然后依赖注入到Presenter中，单元测试的时候就可以完整的测试Presenter应用逻辑的正确性。这里根据上面的例子给出了Presenter的单元测试样例。
+2. View可以进行组件化。在MVP当中，View不依赖Model。这样就可以让View从特定的业务场景中脱离出来，可以说View可以做到对业务完全无知。它只需要提供一系列接口提供给上层操作。这样就可以做到高度可复用的View组件。
+
+**MVP的缺点**
+
+1. 代码量会一些，实现的难度也会增加一些
+
+**MVP与MVC区别**
+
+如下图所示：
+
+[<img src="https://camo.githubusercontent.com/ffe3507510be194890acf2d449e35e3df123c941/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313530363232323132393136303534" alt="img" style="zoom: 67%;" />](https://camo.githubusercontent.com/ffe3507510be194890acf2d449e35e3df123c941/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313530363232323132393136303534)
+
+##### [3] MVVM
+
+MVVM是Model-View-ViewModel的简写，MVVM是思想上的一种变革，也可以看成是MVP的一种变革，它是将"数据模型数据双向绑定"的思想作为核心，因此在View和Model之间便不需要我们写联系了，我们在修改数据的时候视图就可以发生变化，我们在修改视图的时候数据也是会发生变化的，可以在一定程度上提高我们的开发效率的。
+
+**调用关系**
+
+MVVM的调用关系和MVP一样。但是，在ViewModel当中会有一个叫Binder，或者是Data-binding engine的东西。以前全部由Presenter负责的View和Model之间数据同步操作交由给Binder处理。你只需要在View的模版语法当中，指令式地声明View上的显示的内容是和Model的哪一块数据绑定的。当ViewModel对进行Model更新的时候，Binder会自动把数据更新到View上去，当用户对View进行操作（例如表单输入），Binder也会自动把数据更新到Model上去。这种方式称为：Two-way data-binding，双向数据绑定。可以简单而不恰当地理解为一个模版引擎，但是会根据数据变更实时渲染。
+
+[![img](https://camo.githubusercontent.com/61ef7578cd46b1d37dd3ea52ce0a3be570e427cc/687474703a2f2f6c69766f7261732e6769746875622e696f2f626c6f672f6d76632f6d76766d2d63616c6c2e706e67)](https://camo.githubusercontent.com/61ef7578cd46b1d37dd3ea52ce0a3be570e427cc/687474703a2f2f6c69766f7261732e6769746875622e696f2f626c6f672f6d76632f6d76766d2d63616c6c2e706e67)
+
+也就是说，MVVM把View和Model的同步逻辑自动化了。以前Presenter负责的View和Model同步不再手动地进行操作，而是交由框架所提供的Binder进行负责。只需要告诉Binder，View显示的数据对应的是Model哪一部分即可。
+
+Android官方推出的MVVM的DataBinding，便是一个双向绑定的库。
+
+**优点**
+
+1. 提高可维护性。解决了MVP大量的手动View和Model同步的问题，提供双向绑定机制。提高了代码的可维护性。
+2. 简化测试。因为同步逻辑是交由Binder做的，View跟着Model同时变更，所以只需要保证Model的正确性，View就正确。大大减少了对View同步更新的测试。
+
+**缺点**
+
+1. 过于简单的图形界面不适用，或说牛刀杀鸡。
+2. 对于大型的图形应用程序，视图状态较多，ViewModel的构建和维护的成本都会比较高。
+3. 数据绑定的声明是指令式地写在View的模版当中的，这些内容是没办法去打断点debug的。
+
 #### 9. 内存泄露
 
 ##### [1] 前言
@@ -1705,3 +1817,1590 @@ QQ和Qzone 的内存泄漏采用SNGAPM解决方案，SNGAPM是一个性能监控
 > **优势：**避免请求发送者与接收者耦合在一起，让多个对象都有可能接收请求，将这些对象连接成一条链，并且沿着这条链传递请求，直到有对象处理它为止
 
 ​                       ![img](https://imgconvert.csdnimg.cn/aHR0cHM6Ly9pbWcuc29uZ21hLmNvbS93ZW56aGFuZy8yMDE4MTIxNi9zcnF6M2doMmUxdTEzMi5wbmc?x-oss-process=image/format,png)
+
+#### 12.View和ViewGroup的区别
+
+View和ViewGroup的区别：
+
+​     可以从两方面来说：
+
+​     一. 事件分发方面的区别；
+
+​     二. UI绘制方面的区别；
+
+##### [1] 事件分发方面的区别
+
+​     事件分发机制主要有三个方法：**dispatchTouchEvent()**、**onInterceptTouchEvent()**、onTouchEvent()
+
+​     1. ViewGroup包含这三个方法，而View则只包含dispatchTouchEvent()、onTouchEvent()两个方法，不包含onInterceptTouchEvent()。
+
+​     2. 触摸事件由Action_Down、Action_Move、Action_Up组成，一次完整的触摸事件，包含一个Down和Up，以及若干个Move（可以为0）；
+
+     3. 在Action_Down的情况下，事件会先传递到最顶层的ViewGroup，调用ViewGroup的dispatchTouchEvent()，①如果ViewGroup的onInterceptTouchEvent()返回false不拦截该事件，则会分发给子View，调用子View的dispatchTouchEvent()，如果子View的dispatchTouchEvent()返回true，则调用View的onTouchEvent()消费事件。②如果ViewGroup的onInterceptTouchEvent()返回true拦截该事件，则调用ViewGroup的onTouchEvent()消费事件，接下来的Move和Up事件将由该ViewGroup直接进行处理。
+
+​     4. 当某个子View的dispatchTouchEvent()返回true时，会中止Down事件的分发，同时在ViewGroup中记录该子View。接下来的Move和Up事件将由该子View直接进行处理。
+
+​     5. 当ViewGroup中所有子View都不捕获Down事件时，将触发ViewGroup自身的onTouch();触发的方式是调用super.dispatchTouchEvent函数，即父类View的dispatchTouchEvent方法。在所有子View都不处理的情况下，触发Acitivity的onTouchEvent方法。
+
+​     6. 由于子View是保存在ViewGroup中的，多层ViewGroup的节点结构时，上层ViewGroup保存的会是真实处理事件的View所在的ViewGroup对象。如ViewGroup0——ViewGroup1——TextView的结构中，TextView返回了true，它将被保存在ViewGroup1中，而ViewGroup1也会返回true，将被保存在ViewGroup0中；当Move和Up事件来时，会先从ViewGroup0传递到ViewGroup1，再由ViewGroup1传递到TextView，最后事件由TextView消费掉。
+
+​     7.子View可以调getParent().requestDisallowInterceptTouchEvent(),请求父ViewGroup不拦截事件。
+
+##### [2] UI绘制方面的区别
+
+​     UI绘制主要有五个方法：onDraw(),onLayout(),onMeasure()，dispatchDraw(),drawChild()
+
+​     1.ViewGroup包含这五个方法，而View只包含onDraw(),onLayout(),onMeasure()三个方法，不包含dispatchDraw(),drawChild()。
+
+​     2.绘制流程：onMeasure（测量）——》onLayout（布局）——》onDraw（绘制）。
+
+​     3.绘制按照视图树的顺序执行，视图绘制时会先绘制子控件。如果视图的背景可见，视图会在调用onDraw()之前调用drawBackGround()绘制背景。强制重绘，可以使用invalidate();
+
+​     4.如果发生视图的尺寸变化，则该视图会调用requestLayou()，向父控件请求再次布局。如果发生视图的外观变化，则该视图会调用invalidate()，强制重绘。如果requestLayout()或invalidate()有一个被调用，框架会对视图树进行相关的测量、布局和绘制。
+
+​     注意：视图树是单线程操作，直接调用其它视图的方法必须要在UI线程里。跨线程的操作必须使用Handler。
+
+​     5.onLayout()：对于View来说，onLayout()只是一个空实现；而对于ViewGroup来说，onLayout()使用了关键字abstract的修饰，要求其子类必须重载该方法，目的就是安排其children在父视图的具体位置。
+
+​     6.draw过程：drawBackground()绘制背景——》onDraw()对View的内容进行绘制——》dispatchDraw()对当前View的所有子View进行绘制——》onDrawScrollBars()对View的滚动条进行绘制。
+
+![img](https://img-blog.csdn.net/20180907173011161?watermark/2/text/aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxOTQxMjYzMDEz/font/5a6L5L2T/fontsize/400/fill/I0JBQkFCMA==/dissolve/70)
+
+ 
+
+方法说明：
+
+​     1.onDraw(Canvas canvas)：UI绘制最重要的方法，用于UI重绘。这个方法是所有View、ViewGroup及其派生类都具有的方法。自定义控件时，可以重载该方法，并在内容基于canvas绘制自定义的图形、图像效果。
+
+​     2.onLayout(boolean changed, int left, int top, int right, int bottom)：布局发生变化时调用此方法。这个方法是所有View、ViewGroup及其派生类都具有的方法。自定义控件时，可以重载该方法，在布局发生改变时实现特效等定制处理。
+
+​     3.onMeasure(int widthMeasureSpec, int heightMeasureSpec)：用于计算自己及所有子对象的大小。这个方法是所有View、ViewGroup及其派生类都具有的方法。自定义控件时，可以重载该方法，重新计算所有对象的大小。 MeasureSpec包含了测量的模式和测量的大小，通过MeasureSpec.getMode()获取测量模式，通过MeasureSpec.getSize()获取测量大小。mode共有三种情况： 分别为MeasureSpec.UNSPECIFIED（ View想多大就多大）, MeasureSpec.EXACTLY（默认模式，精确值模式：将layout_width或layout_height属性指定为具体数值或者match_parent。）, MeasureSpec.AT_MOST（ 最大值模式：将layout_width或layout_height指定为wrap_content。）。
+
+​     4.dispatchDraw(Canvas canvas)：ViewGroup及其派生类具有的方法，主要用于控制子View的绘制分发。自定义控件时，重载该方法可以改变子View的绘制，进而实现一些复杂的视效。
+
+​     5.drawChild(Canvas canvas, View child, long drawingTime)：ViewGroup及其派生类具有的方法，用于直接绘制具体的子View。自定义控件时，重载该方法可以直接绘制具体的子View。
+
+## 【Activity专题】
+
+##### [1] Activity是什么？
+
+> **Android 程序核心组件:**
+>
+> **View**: 界面视图,组织 UI 控件 
+>
+> **Intent**: 意图,支持组件间通信 
+>
+> **Activity**: 处理界面与 UI 互动 
+>
+> **Content Provider**: 存储共享数据 
+>
+> **IntentReceiver**: 接收信息及事件处理
+>
+> **Service**: 后台服务(如硬件与驱动的服务) 
+>
+> **Notification**: 消息与通知。
+
+我们都知道android中有四大组件（**Activity 活动，Service 服务，Content Provider 内容提供者，BroadcastReceiver 广播接收器**），Activity是我们用的最多也是最基本的组件，因为应用的所有操作都与用户相关，Activity 提供窗口来和用户进行交互。
+
+官方文档这么说： 　　
+
+> An activity is a single, focused thing that the user can do. Almost all activities interact with the user, so the Activity class takes care of creating a window for you in which you can place your UI with setContentView(View).
+>
+> 大概的意思：
+
+> activity是独立平等的，用来处理用户操作。几乎所有的activity都是用来和用户交互的，所以activity类会创建了一个窗口，开发者可以通过setContentView(View)的接口把UI放到给窗口上。
+
+　　Android中的activity全都归属于task管理 。task 是多个 activity 的集合，这些 activity 按照启动顺序排队存入一个栈（即“back stack”）。android默认会为每个App维持一个task来存放该app的所有activity，task的默认name为该app的packagename。
+
+　　当然我们也可以在AndroidMainfest.xml中申明activity的taskAffinity属性来自定义task，但不建议使用，如果其他app也申明相同的task，它就有可能启动到你的activity，带来各种安全问题（比如拿到你的Intent）。
+
+##### [2] Activity的生命周期
+
+　　上面已经说了，系统通过堆栈来管理activity，当一个新的activity开始时，它被放置在堆栈的顶部和成为运行活动，以前的activity始终保持低于它在堆栈，而不会再次到达前台，直到新的活动退出。
+
+还是上这张官网的activity_lifecycle图： 　　[![这里写图片描述](https://camo.githubusercontent.com/f986bb2922053692d116dda08d9173371414673d/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313630343235313731373131303534)](https://camo.githubusercontent.com/f986bb2922053692d116dda08d9173371414673d/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313630343235313731373131303534)　
+
+1. 首先打开一个新的activity实例的时候，系统会依次调用
+
+> onCreate（）  -> onStart() -> onResume() 然后开始running
+
+2. running的时候被覆盖了（从它打开了新的activity或是被锁屏，但是它**依然在前台**运行， lost focus but is still visible），系统调用onPause();
+
+> 　该方法执行activity暂停，通常用于提交未保存的更改到持久化数据，停止动画和其他的东西。但这个activity还是完全活着（它保持所有的状态和成员信息，并保持连接到**窗口管理器**）
+
+3. 接下来它有三条出路：
+
+ ①用户返回到该activity就调用onResume()方法重新running
+
+ ②用户回到桌面或是打开其他activity，就会调用onStop()进入停止状态（保留所有的状态和成员信息，**对用户不可见**）
+
+ ③系统内存不足，拥有更高限权的应用需要内存，那么该activity的进程就可能会被系统回收。（回收onRause()和onStop()状态的activity进程）要想重新打开就必须重新创建一遍。
+
+4. 如果用户返回到onStop()状态的activity（又显示在前台了），系统会调用
+
+> onRestart() ->  onStart() -> onResume() 然后重新running
+
+5. 在activity结束（调用finish ()）或是被系统杀死之前会调用onDestroy()方法释放所有占用的资源。
+
+> activity生命周期中三个嵌套的循环
+
+- activity的完整生存期会在 onCreate() 调用和 onDestroy() 调用之间发生。　
+- activity的可见生存期会在 onStart() 调用和 onStop() 调用之间发生。系统会在activity的整个生存期内多次调用 onStart() 和onStop()， 因为activity可能会在显示和隐藏之间不断地来回切换。　
+- activity的前后台切换会在 onResume() 调用和 onPause() 之间发生。 因为这个状态可能会经常发生转换，为了避免切换迟缓引起的用户等待，**这两个方法中的代码应该相当地轻量化**。
+
+##### [3] activity被回收的状态和信息保存和恢复过程
+
+```java
+public class MainActivity extends Activity {
+
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		if(savedInstanceState!=null){ //判断是否有以前的保存状态信息
+			 savedInstanceState.get("Key"); 
+			 }
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_main);
+	}
+   @Override
+protected void onSaveInstanceState(Bundle outState) {
+	// TODO Auto-generated method stub
+	 //可能被回收内存前保存状态和信息，
+	   Bundle data = new Bundle(); 
+	   data.putString("key", "last words before be kill");
+	   outState.putAll(data);
+	super.onSaveInstanceState(outState);
+}
+   @Override
+protected void onRestoreInstanceState(Bundle savedInstanceState) {
+	// TODO Auto-generated method stub
+	   if(savedInstanceState!=null){ //判断是否有以前的保存状态信息
+			 savedInstanceState.get("Key"); 
+			 }
+	super.onRestoreInstanceState(savedInstanceState);
+}
+}
+```
+
+**onSaveInstanceState方法**
+
+　　在activity　可能被回收之前　调用,用来保存自己的状态和信息，以便回收后重建时恢复数据（在onCreate()或onRestoreInstanceState()中恢复）。旋转屏幕重建activity会调用该方法，但其他情况在onRause()和onStop()状态的activity不一定会调用 ，下面是该方法的文档说明。
+
+> One example of when onPause and onStop is called and not this method is when a user navigates back from activity B to activity A: there is no need to call onSaveInstanceState on B because that particular instance will never be restored, so the system avoids calling it. An example when onPause is called and not onSaveInstanceState is when activity B is launched in front of activity A: the system may avoid calling onSaveInstanceState on activity A if it isn't killed during the lifetime of B since the state of the user interface of A will stay intact.
+
+也就是说，系统灵活的来决定调不调用该方法，**但是如果要调用就一定发生在onStop方法之前，但并不保证发生在onPause的前面还是后面。**
+
+**onRestoreInstanceState方法**
+
+　　这个方法在onStart 和 onPostCreate之间调用，在onCreate中也可以状态恢复，但有时候需要所有布局初始化完成后再恢复状态。
+
+　　onPostCreate：一般不实现这个方法，当程序的代码开始运行时，它调用系统做最后的初始化工作。
+
+##### [4] activity启动模式
+
+**启动模式什么？**简单的说就是定义activity 实例与task 的关联方式。 　　
+
+**为什么要定义启动模式？**
+
+　　 为了实现一些默认启动（standard）模式之外的需求： 　　
+
+- 让某个 activity 启动一个新的 task （而不是被放入当前 task ）
+- 让 activity 启动时只是调出已有的某个实例（而不是在 back stack 顶创建一个新的实例）　
+- 或者，你想在用户离开 task 时只保留根 activity，而 back stack 中的其它 activity 都要清空
+
+**怎样定义启动模式？**
+
+　　定义启动模式的方法有两种：
+
+**使用 manifest 文件**
+
+　　在 manifest 文件中activity声明时，利用 activity 元素的 launchMode 属性来设定 activity 与 task 的关系。
+
+```
+ <activity
+            ．．．．．．
+            android:launchMode="standard"
+             >
+           ．．．．．．．
+        </activity>
+```
+
+> 注意： 你用 launchMode 属性为 activity 设置的模式可以被启动 activity 的 intent 标志所覆盖。
+
+**有哪些启动模式？**
+
+- **"standard"** （默认模式）　
+
+　　当通过这种模式来启动Activity时,　Android总会为目标 Activity创建一个新的实例,并将该Activity添加到当前Task栈中。这种方式不会启动新的Task,只是将新的 Activity添加到原有的Task中。　 　　
+
+- **"singleTop"**　
+
+　　该模式和standard模式基本一致,但有一点不同: 当将要被启动的Activity已经位于Task栈顶时,系统不会重新创建目标Activity实例,而是直接复用Task栈顶的Activity。
+
+- **"singleTask"**
+
+　　Activity在同一个Task内只有一个实例。如果将要启动的Activity不存在,那么系统将会创建该实例,并将其加入Task栈顶；　
+
+　　如果将要启动的Activity已存在,且存在栈顶,直接复用Task栈顶的Activity。　
+
+　　如果Activity存在但是没有位于栈顶,那么此时系统会把位于该Activity上面的所有其他Activity全部移出Task,从而使得该目标Activity位于栈顶。
+
+- **"singleInstance"**　
+
+　　无论从哪个Task中启动目标Activity,只会创建一个目标Activity实例且会用一个全新的Task栈来装载该Activity实例（全局单例）.
+
+　　如果将要启动的Activity不存在,那么系统将会先创建一个全新的Task,再创建目标Activity实例并将该Activity实例放入此全新的Task中。
+
+　　如果将要启动的Activity已存在,那么无论它位于哪个应用程序,哪个Task中;系统都会把该Activity所在的Task转到前台,从而使该Activity显示出来。
+
+**使用 Intent 标志**
+
+　　在要启动 activity 时，你可以在传给 startActivity() 的 **intent** 中包含相应标志，以修改 **activity 与 task** 的默认关系。
+
+```java
+　　　　　Intent i = new Intent(this,ＮewActivity.class);
+		i.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+		startActivity(i);
+```
+
+**可以通过标志修改的默认模式有哪些？**
+
+- FLAG_ACTIVITY_NEW_TASK
+
+　　与"singleTask"模式相同，在新的 task 中启动 activity。如果要启动的 activity 已经运行于某 task 中，则那个 task 将调入前台。
+
+- FLAG_ACTIVITY_SINGLE_TOP
+
+　　与 "singleTop"模式相同，如果要启动的 activity位于back stack 顶，系统不会重新创建目标Activity实例,而是直接复用Task栈顶的Activity。
+
+- FLAG_ACTIVITY_CLEAR_TOP
+
+　　**此种模式在launchMode中没有对应的属性值。**如果要启动的 activity 已经在当前 task 中运行，则不再启动一个新的实例，且所有在其上面的 activity 将被销毁。
+
+**关于启动模式的一些建议**
+
+　　 一般不要改变 activity 和 task 默认的工作方式。 如果你确定有必要修改默认方式，请保持谨慎，并确保 activity 在启动和从其它 activity 返回时的可用性，多做测试和安全方面的工作。
+
+##### [5] Intent Filter
+
+　　android的3个核心组件——Activity、services、广播接收器——是通过intent传递消息的。intent消息用于在运行时绑定不同的组件。在 Android 的 AndroidManifest.xml 配置文件中可以通过 intent-filter 节点为一个 Activity 指定其 Intent Filter，以便告诉系统该 Activity 可以响应什么类型的 Intent。
+
+**intent-filter 的三大属性**
+
+**Action**
+
+　　一个 Intent Filter 可以包含多个 Action，Action 列表用于标示 Activity 所能接受的“动作”，它是一个用户自定义的字符串。
+
+```
+<intent-filter > 
+ <action android:name="android.intent.action.MAIN" /> 
+ <action android:name="com.scu.amazing7Action" /> 
+……
+ </intent-filter>
+```
+
+在代码中使用以下语句便可以启动该Intent 对象：
+
+```
+Intent i=new Intent(); 
+i.setAction("com.scu.amazing7Action");
+```
+
+Action 列表中包含了“com.scu.amazing7Action”的 Activity 都将会匹配成功
+
+**URL**
+
+　　在 intent-filter 节点中，通过 data节点匹配外部数据，也就是通过 URI 携带外部数据给目标组件。
+
+```
+<data android:mimeType="mimeType" 
+	android:scheme="scheme" 
+	 android:host="host"
+	 android:port="port" 
+	 android:path="path"/>
+```
+
+注意：只有data的所有的属性都匹配成功时 URI 数据匹配才会成功
+
+**Category**
+
+　　为组件定义一个 类别列表，当 Intent 中包含这个类别列表的所有项目时才会匹配成功。
+
+```
+<intent-filter . . . >
+   <action android:name="code android.intent.action.MAIN" />
+   <category android:name="code　android.intent.category.LAUNCHER" />
+</intent-filter>
+```
+
+**Activity 中 Intent Filter 的匹配过程**
+
+① 加载所有的Intent Filter列表 　　
+
+② 去掉action匹配失败的Intent Filter 　　
+
+③ 去掉url匹配失败的Intent Filter 　
+
+④ 去掉Category匹配失败的Intent Filter 　
+
+⑤ 判断剩下的Intent Filter数目是否为0。如果为0查找失败返回异常；如果大于0，就按优先级排序，返回最高优先级的Intent Filter
+
+##### [6] 开发中Activity的一些问题
+
+一般设置Activity为非公开的
+
+```java
+<activity  
+．．．．．． 
+android:exported="false" /> 
+```
+
+注意：非公开的Activity不能设置intent-filter，以免被其他activity唤醒（如果拥有相同的intent-filter）。
+
+- 不要指定activity的taskAffinity属性
+- 不要设置activity的LaunchMode（保持默认）
+
+　　注意Activity的intent最好也不要设定为FLAG_ACTIVITY_NEW_TASK
+
+- 在匿名内部类中使用this时加上activity类名（类名.this,不一定是当前activity）
+- 设置activity全屏
+
+　　在其 onCreate()方法中加入：
+
+```java
+// 设置全屏模式
+ getWindow().setFlags(WindowManager.LayoutParams.FLAG_FULLSCREEN, WindowManager.LayoutParams.FLAG_FULLSCREEN); 
+ // 去除标题栏
+ requestWindowFeature(Window.FEATURE_NO_TITLE);
+```
+
+## 【Service专题】
+
+##### [1] 什么是服务？　　
+
+　　Service是一个应用程序组件，它能够在后台执行一些耗时较长的操作，并且不提供用户界面。服务能被其它应用程序的组件启动，即使用户切换到另外的应用时还能保持后台运行。此外，应用程序组件还能与服务绑定，并与服务进行交互，甚至能进行进程间通信（IPC）。 比如，服务可以处理网络传输、音乐播放、执行文件I/O、或者与content provider进行交互，所有这些都是后台进行的。
+
+##### [2] Service 与Thread的区别
+
+　　服务仅仅是一个组件，即使用户不再与你的应用程序发生交互，它仍然能在后台运行。因此，应该只在需要时才创建一个服务。
+
+　　如果你需要在主线程之外执行一些工作，但仅当用户与你的应用程序交互时才会用到，那你应该创建一个新的线程而不是创建服务。 比如，如果你需要播放一些音乐，但只是当你的activity在运行时才需要播放，你可以在onCreate()中创建一个线程，在onStart()中开始运行，然后在onStop()中终止运行。还可以考虑使用AsyncTask或HandlerThread来取代传统的Thread类。
+
+　　**由于无法在不同的 Activity 中对同一 Thread 进行控制**，这个时候就要考虑用服务实现。如果你使用了服务，它默认就运行于应用程序的主线程中。因此，如果服务执行密集计算或者阻塞操作，你仍然应该在服务中创建一个新的线程来完成（避免ANR）。
+
+##### [3] 服务的分类
+
+**1. 按运行分类**
+
+- 前台服务
+
+　　前台服务是指那些经常会被用户关注的服务，因此内存过低时它不会成为被杀的对象。 前台服务必须提供一个状态栏通知，并会置于“正在进行的”（“Ongoing”）组之下。这意味着只有在服务被终止或从前台移除之后，此通知才能被解除。例如，用服务来播放音乐的播放器就应该运行在前台，因为用户会清楚地知晓它的运行情况。 状态栏通知可能会标明当前播放的歌曲，并允许用户启动一个activity来与播放器进行交互。
+
+　　要把你的服务请求为前台运行，可以调用**startForeground()**方法。此方法有两个参数：唯一标识通知的整数值、状态栏通知Notification对象。例如：
+
+```java
+Notification notification = new Notification(R.drawable.icon, getText(R.string.ticker_text),System.currentTimeMillis());
+Intent notificationIntent = new Intent(this,ExampleActivity.class);
+PendingIntent pendingIntent = PendingIntent.getActivity(this, 0, notificationIntent, 0);
+notification.setLatestEventInfo(this, getText(R.string.notification_title),
+        getText(R.string.notification_message), pendingIntent);  
+startForeground(ONGOING_NOTIFICATION, notification);
+```
+
+　　要从前台移除服务，请调用**stopForeground()**方法，这个方法接受个布尔参数，表示是否同时移除状态栏通知。此方法不会终止服务。不过，如果服务在前台运行时被你终止了，那么通知也会同时被移除。
+
+- 后台服务
+
+**2. 按使用分类**　　
+
+- **本地服务**：用于应用程序内部，实现一些耗时任务，并不占用应用程序比如Activity所属线程，而是单开线程后台执行。调用Context.startService()启动，调用Context.stopService()结束。在内部可以调用Service.stopSelf() 或 Service.stopSelfResult()来自己停止。
+
+- **远程服务**：用于Android系统内部的应用程序之间，可被其他应用程序复用，比如天气预报服务，其他应用程序不需要再写这样的服务，调用已有的即可。可以定义接口并把接口暴露出来，以便其他应用进行操作。客户端建立到服务对象的连接，并通过那个连接来调用服务。调用Context.bindService()方法建立连接，并启动，以调用 Context.unbindService()关闭连接。多个客户端可以绑定至同一个服务。如果服务此时还没有加载，bindService()会先加载它。
+
+##### [4] Service生命周期
+
+　                                   ![img](https://upload-images.jianshu.io/upload_images/4625401-84380bfeb9c4b0ff.png?imageMogr2/auto-orient/strip|imageView2/2/w/526/format/webp)
+
+
+
+【链接：https://www.jianshu.com/p/cc25fbb5c0b3】
+
+<img src="X:\Users\xu\AppData\Roaming\Typora\typora-user-images\image-20200901224652977.png" alt="image-20200901224652977" style="zoom:80%;" />
+
+
+
+**Service生命周期方法：**
+
+```java
+public class ExampleService extends Service {
+    int mStartMode;       // 标识服务被杀死后的处理方式
+    IBinder mBinder;      // 用于客户端绑定的接口
+    boolean mAllowRebind; // 标识是否使用onRebind
+
+    @Override
+    public void onCreate() {
+        // 服务正被创建
+    }
+    @Override
+    public int onStartCommand(Intent intent, int flags, int startId) {
+        // 服务正在启动，由startService()调用引发
+        return mStartMode;
+    }
+    @Override
+    public IBinder onBind(Intent intent) {
+        // 客户端用bindService()绑定服务
+        return mBinder;
+    }
+    @Override
+    public boolean onUnbind(Intent intent) {
+        // 所有的客户端都用unbindService()解除了绑定
+        return mAllowRebind;
+    }
+    @Override
+    public void onRebind(Intent intent) {
+        // 某客户端正用bindService()绑定到服务,
+        // 而onUnbind()已经被调用过了
+    }
+    @Override
+    public void onDestroy() {
+        // 服务用不上了，将被销毁
+    }
+}
+```
+
+> 请注意onStartCommand()方法必须返回一个整数。这个整数是描述系统在杀死服务之后应该如何继续运行。onStartCommand()的返回值必须是以下常量之一：
+
+> START_NOT_STICKY 如果系统在onStartCommand()返回后杀死了服务，则不会重建服务了，除非还存在未发送的intent。 当服务不再是必需的，并且应用程序能够简单地重启那些未完成的工作时，这是避免服务运行的最安全的选项。START_STICKY 如果系统在onStartCommand()返回后杀死了服务，则将重建服务并调用onStartCommand()，但不会再次送入上一个intent， 而是用null intent来调用onStartCommand() 。除非还有启动服务的intent未发送完，那么这些剩下的intent会继续发送。 这适用于媒体播放器（或类似服务），它们不执行命令，但需要一直运行并随时待命。　
+
+> START_REDELIVER_INTENT 如果系统在onStartCommand()返回后杀死了服务，则将重建服务并用上一个已送过的intent调用onStartCommand()。任何未发送完的intent也都会依次送入。这适用于那些需要立即恢复工作的活跃服务，比如下载文件。
+
+　　服务的生命周期与activity的非常类似。不过，更重要的是你需密切关注服务的创建和销毁环节，因为后台运行的服务是不会引起用户注意的。
+
+　　服务的生命周期——从创建到销毁——可以有两种路径：
+
+- **一个started服务**
+
+　　这类服务由其它组件调用startService()来创建。然后保持运行，且**必须通过调用stopSelf()自行终止**。其它组件也可通过调用stopService() 终止这类服务。服务终止后，系统会把它销毁。
+
+　　如果一个Service被startService 方法多次启动，那么onCreate方法只会调用一次，onStart将会被调用多次（对应调用startService的次数），并且**系统只会创建Service的一个实例**（因此你应该知道只需要一次stopService调用）。该Service将会一直在后台运行，而不管对应程序的Activity是否在运行，直到被调用stopService，或自身的stopSelf方法。当然如果系统资源不足，android系统也可能结束服务。
+
+- **一个bound服务**
+
+　　服务由其它组件（客户端）调用bindService()来创建。然后客户端通过一个**IBinder接口与服务进行通信**。客户端可以通过调用unbindService()来关闭联接。多个客户端可以绑定到同一个服务上，当所有的客户端都解除绑定后，系统会销毁服务。（服务不需要自行终止。）
+
+　　如果一个Service被某个Activity 调用 Context.bindService 方法绑定启动，不管调用 bindService 调用几次，onCreate方法都只会调用一次，同时onStart方法始终不会被调用。当连接建立之后，Service将会一直运行，除非调用Context.unbindService 断开连接或者之前调用bindService 的 Context 不存在了（如Activity被finish的时候），系统将会自动停止Service，对应onDestroy将被调用。
+
+![img](https://upload-images.jianshu.io/upload_images/4625401-756d89b600d55081.png?imageMogr2/auto-orient/strip|imageView2/2/w/404/format/webp)
+
+　　这两条路径并不是完全隔离的。也就是说，你可以绑定到一个已经用startService()启动的服务上。例如，一个后台音乐服务可以通过调用startService()来启动，传入一个指明所需播放音乐的 Intent。 之后，用户也许需要用播放器进行一些控制，或者需要查看当前歌曲的信息，这时一个activity可以通过调用bindService()与此服务绑定。在类似这种情况下，stopService()或stopSelf()不会真的终止服务，除非所有的客户端都解除了绑定。
+
+> 　　当在旋转手机屏幕的时候，当手机屏幕在“横”“竖”变换时，此时如果你的 Activity 如果会自动旋转的话，旋转其实是 Activity 的重新创建，因此旋转之前的使用 bindService 建立的连接便会断开（Context 不存在了）。
+
+**在manifest中声明服务**
+
+　　无论是什么类型的服务都必须在manifest中申明，格式如下：
+
+```
+<manifest ... >
+  ...
+  <application ... >
+      <service android:name=".ExampleService" />
+      ...
+  </application>
+</manifest>
+```
+
+Service 元素的属性有：
+
+> android:name　　-------------　　服务类名
+
+> android:label　　--------------　　服务的名字，如果此项不设置，那么默认显示的服务名则为类名
+
+> android:icon　　--------------　　服务的图标
+
+> android:permission　　-------　　申明此服务的权限，这意味着只有提供了该权限的应用才能控制或连接此服务
+
+> android:process　　----------　　表示该服务是否运行在另外一个进程，如果设置了此项，那么将会在包名后面加上这段字符串表示另一进程的名字
+
+> android:enabled　　----------　　如果此项设置为 true，那么 Service 将会默认被系统启动，不设置默认此项为 false
+
+> android:exported　　---------　　表示该服务是否能够被其他应用程序所控制或连接，不设置默认此项为 false　
+
+　　android:name是唯一必需的属性——它定义了服务的类名。与activity一样，服务可以定义intent过滤器，使得其它组件能用隐式intent来调用服务。如果你想让服务只能内部使用（其它应用程序无法调用），那么就不必（也不应该）提供任何intent过滤器。 　　此外，如果包含了android:exported属性并且设置为"false"， 就可以确保该服务是你应用程序的私有服务。即使服务提供了intent过滤器，本属性依然生效。　
+
+**startService 启动服务**
+
+　　从activity或其它应用程序组件中可以启动一个服务，调用startService()并传入一个Intent（指定所需启动的服务）即可。
+
+```java
+	Intent intent = new Intent(this, MyService.class);
+	startService(intent);
+```
+
+服务类：
+
+```java
+public class MyService extends Service {
+
+	  /**
+     * onBind 是 Service 的虚方法，因此我们不得不实现它。
+     * 返回 null，表示客服端不能建立到此服务的连接。
+     */
+	@Override
+	public IBinder onBind(Intent intent) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+    
+	@Override
+    public void onCreate() {
+        super.onCreate();
+    }
+     
+    @Override
+ public int onStartCommand(Intent intent, int flags, int startId)  　　 {  	
+    //接受传递过来的intent的数据 
+     return START_STICKY; 
+    };
+     
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+    }
+	
+}
+```
+
+　　一个started服务必须自行管理生命周期。也就是说，系统不会终止或销毁这类服务，除非必须恢复系统内存并且服务返回后一直维持运行。 因此，服务必须通过调用stopSelf()自行终止，或者其它组件可通过调用stopService()来终止它。
+
+**bindService 启动服务**　　
+
+　　当应用程序中的activity或其它组件需要与服务进行交互，或者应用程序的某些功能需要暴露给其它应用程序时，你应该创建一个bound服务，并通过进程间通信（IPC）来完成。
+
+方法如下：
+
+```
+ Intent intent=new Intent(this,BindService.class); 
+ bindService(intent, ServiceConnection conn, int flags)  
+```
+
+> 注意bindService是Context中的方法，当没有Context时传入即可。
+
+在进行服务绑定的时，其flags有：
+
+- Context.BIND_AUTO_CREATE
+
+　　表示收到绑定请求的时候，如果服务尚未创建，则即刻创建，在系统内存不足需要先摧毁优先级组件来释放内存，且只有驻留该服务的进程成为被摧毁对象时，服务才被摧毁　
+
+- Context.BIND_DEBUG_UNBIND    　
+
+　　通常用于调试场景中判断绑定的服务是否正确，但容易引起内存泄漏，因此非调试目的的时候不建议使用
+
+- Context.BIND_NOT_FOREGROUND    　
+
+　　表示系统将阻止驻留该服务的进程具有前台优先级，仅在后台运行。
+
+服务类：
+
+```
+public class BindService extends Service {
+
+	 // 实例化MyBinder得到mybinder对象；
+	private final MyBinder binder = new MyBinder();
+	
+	  /**
+     * 返回Binder对象。
+     */
+	@Override
+	public IBinder onBind(Intent intent) {
+		// TODO Auto-generated method stub
+		return binder;
+	}
+    
+     /**
+      * 新建内部类MyBinder，继承自Binder(Binder实现IBinder接口),
+      * MyBinder提供方法返回BindService实例。
+      */
+　　public class MyBinder extends Binder{
+        
+        public BindService getService(){
+            return BindService.this;
+        }
+    }
+     
+
+	@Override
+	public boolean onUnbind(Intent intent) {
+		// TODO Auto-generated method stub
+		return super.onUnbind(intent);
+	}
+}
+```
+
+启动服务的activity代码：
+
+```
+public class MainActivity extends Activity {
+
+	/** 是否绑定 */  
+	boolean mIsBound = false; 
+	BindService mBoundService;
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		super.onCreate(savedInstanceState);
+		setContentView(R.layout.activity_main);
+		doBindService();
+	}
+	/**
+	 * 实例化ServiceConnection接口的实现类,用于监听服务的状态
+	 */
+	private ServiceConnection conn = new ServiceConnection() {  
+		  
+	    @Override  
+	    public void onServiceConnected(ComponentName name, IBinder service) {  
+	        BindService mBoundService = ((BindService.MyBinder) service).getService();  
+	        
+	    }  
+	  
+	    @Override  
+	    public void onServiceDisconnected(ComponentName name) {  
+	        mBoundService = null;  
+	     
+	    }  
+	}; 
+	
+	/** 绑定服务 */  
+	public void doBindService() {  
+	    bindService(new Intent(MainActivity.this, BindService.class), conn,Context.BIND_AUTO_CREATE);  
+	    mIsBound = true;  
+	}  
+	
+	/** 解除绑定服务 */  
+	public void doUnbindService() {  
+	    if (mIsBound) {  
+	        // Detach our existing connection.  
+	        unbindService(conn);  
+	        mIsBound = false;  
+	    }  
+	} 
+	
+	@Override
+	protected void onDestroy() {
+		// TODO Auto-generated method stub
+		super.onDestroy();
+		
+		doUnbindService();
+	}
+}
+```
+
+> 注意在AndroidMainfest.xml中对Service进行显式声明
+
+判断Service是否正在运行：
+
+```
+private boolean isServiceRunning() {
+    ActivityManager manager = (ActivityManager) getSystemService(ACTIVITY_SERVICE);
+    
+ 　{
+        if ("com.example.demo.BindService".equals(service.service.getClassName())) 　　{
+            return true;
+        }
+    }
+    return false;
+}
+```
+
+##### [5] [bindService与startService区别](https://www.cnblogs.com/yesphet/p/4766786.html)
+
+1. Started Service中使用startService（）方法来进行方法的调用，调用者和服务之间没有联系，即使调用者退出了，服务依然在进行 【onCreate()-  >onStartCommand()->startService()->onDestroy()】，注意其中没有 onStart()，主要是被onStartCommand()方法给取代了，onStart方法不推荐使用了。
+2. BindService中使用bindService()方法来绑定服务，调用者和绑定者绑在一起，调用者一旦退出服务也就终止了【onCreate()->onBind()->onUnbind()->onDestroy()】。
+
+##### [6] IntentService详细解析
+
+1. **IntentService定义**
+
+　　IntentService继承于Service，用来处理异步请求。客户端可以通过startService(Intent)方法传递请求给IntentService。IntentService在onCreate()函数中通过HandlerThread单独开启一个线程来依次处理所有Intent请求对象所对应的任务。这样以免事务处理阻塞主线程（ＡＮＲ）。执行完所一个Intent请求对象所对应的工作之后，如果没有新的Intent请求达到，则**自动停止**Service；否则执行下一个Intent请求所对应的任务。　 　　    IntentService在处理事务时，还是采用的Handler方式，创建一个名叫ServiceHandler的内部Handler，并把它直接绑定到HandlerThread所对应的子线程。 ServiceHandler把处理一个intent所对应的事务都封装到叫做**onHandleIntent**的虚函数；因此我们直接实现虚函数onHandleIntent，再在里面根据Intent的不同进行不同的事务处理就可以了。 另外，IntentService默认实现了Onbind（）方法，返回值为null。
+
+使用IntentService需要实现的两个方法： 　　
+
+- **构造函数**　
+
+　　IntentService的构造函数一定是**参数为空**的构造函数，然后再在其中调用super("name")这种形式的构造函数。因为Service的实例化是系统来完成的，而且系统是用参数为空的构造函数来实例化Service的
+
+- **实现虚函数onHandleIntent**
+
+　　在里面根据Intent的不同进行不同的事务处理。好处：处理异步请求的时候可以减少写代码的工作量，比较轻松地实现项目的需求。
+
+2. **IntentService与Service的区别**
+
+　　Service不是独立的进程，也不是独立的线程，它是依赖于应用程序的主线程的，不建议在Service中编写耗时的逻辑和操作，否则会引起ANR。
+
+　　IntentService 它创建了一个独立的工作线程来处理所有的通过onStartCommand()传递给服务的intents（把intent插入到工作队列中）。通过工作队列把intent逐个发送给onHandleIntent()。不需要主动调用stopSelft()来结束服务。因为，在所有的intent被处理完后，系统会自动关闭服务。
+
+　　 默认实现的onBind()返回null。
+
+3. **IntentService实例介绍**
+
+　　首先是myIntentService.java
+
+```java
+public class myIntentService extends IntentService {
+
+	//------------------必须实现-----------------------------
+	
+	public myIntentService() {
+		super("myIntentService");
+		// 注意构造函数参数为空，这个字符串就是worker thread的名字
+	}
+
+	@Override
+	protected void onHandleIntent(Intent intent) {
+		//根据Intent的不同进行不同的事务处理 
+        String taskName = intent.getExtras().getString("taskName");  
+        switch (taskName) {
+		case "task1":
+			Log.i("myIntentService", "do task1");
+			break;
+		case "task2":
+			Log.i("myIntentService", "do task2");
+			break;
+		default:
+			break;
+		}		
+	}
+  //--------------------用于打印生命周期--------------------	
+   @Override
+  public void onCreate() {
+		Log.i("myIntentService", "onCreate");
+	super.onCreate();
+}
+	
+	@Override
+	public int onStartCommand(Intent intent, int flags, int startId) {
+		Log.i("myIntentService", "onStartCommand");
+		return super.onStartCommand(intent, flags, startId);
+	}
+	
+	@Override
+	public void onDestroy() {
+		Log.i("myIntentService", "onDestroy");
+		super.onDestroy();
+	}
+}
+```
+
+然后记得在Manifest.xml中注册服务
+
+```java
+ <service android:name=".myIntentService">
+            <intent-filter >  
+                <action android:name="cn.scu.finch"/>  
+            </intent-filter>     
+        </service>
+```
+
+最后在Activity中开启服务
+
+```java
+public class MainActivity extends Activity {
+	@Override
+	protected void onCreate(Bundle savedInstanceState) {
+		// TODO Auto-generated method stub
+		super.onCreate(savedInstanceState);
+		
+		//同一服务只会开启一个worker thread，在onHandleIntent函数里依次处理intent请求。
+		
+        Intent i = new Intent("cn.scu.finch");  
+        Bundle bundle = new Bundle();  
+        bundle.putString("taskName", "task1");  
+        i.putExtras(bundle);  
+        startService(i);  
+           
+        Intent i2 = new Intent("cn.scu.finch");  
+        Bundle bundle2 = new Bundle();  
+        bundle2.putString("taskName", "task2");  
+        i2.putExtras(bundle2);  
+        startService(i2); 
+        
+        startService(i);  //多次启动
+	}
+}
+```
+
+运行结果：
+
+[![这里写图片描述](https://camo.githubusercontent.com/fb6bf8fc2ff7c1713ef558183b6ab0f47cb846e3/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313630353133313335343131303337)](https://camo.githubusercontent.com/fb6bf8fc2ff7c1713ef558183b6ab0f47cb846e3/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313630353133313335343131303337)　
+
+　　IntentService在onCreate()函数中通过HandlerThread单独开启一个线程来依次处理所有Intent请求对象所对应的任务。通过onStartCommand()传递给服务intent被**依次**插入到工作队列中。工作队列又把intent逐个发送给onHandleIntent()。
+
+> 注意： 它只有一个工作线程，名字就是构造函数的那个字符串，也就是“myIntentService”，我们知道多次开启service，只会调用一次onCreate方法（创建一个工作线程），多次onStartCommand方法（用于传入intent通过工作队列再发给onHandleIntent函数做处理）。
+
+##### [7] IntentService——Handler与Service的结合 
+
+**综述**
+
+　　我们都知道Service是作为后台服务运行再程序中的。但是Service他依然是运行在主线程中的，所以我们依然不能在Service中进行耗时的操作。所以当我们在Service处理时，我们需要在Service中开启一个子线程，并且在子线程中运行。当然为了简化我们的操作，在Android中为我们提供了IntentService来进行这一处理，下面我们就来看一下这个IntentService用法以及它的工作原理。
+
+**用法简介**
+
+　　IntentService它继承自Service，一来说我们开启一个Service可以通过startService和bindService两个方式进行开启一个服务，但是对于IntentService我们采用startService方法进行开启服务，对于为什么要这么做，在后面会进行分析讲解。下面我们来看一下如何使用这个IntentService的。
+
+**效果演示**
+
+　　在这里我们做一个倒计时的程序，以毫秒为单位。这里先看一下效果演示。 
+
+​                                                ![img](http://mmbiz.qpic.cn/mmbiz/ibuh47bPhianYgmJ0lbibDDuMmxjwQMlxSTpy8CspBHm5RjmJsZbU6YsKibeaWobtRBCg7ahv5g76bqR8TosABUmDA/0?wx_fmt=gif&tp=webp&wxfrom=5&wx_lazy=1)
+
+**代码分析**
+
+　　在这里我们使用到了开源框架EventBus，对于EventBus的使用可以参考 EventBus3.0使用详解这篇文章。由于我们用到这EventBus,首先我们创建一个实体类，在EventBus中进行发送，接收处理。
+
+![img](http://mmbiz.qpic.cn/mmbiz/ibuh47bPhianYgmJ0lbibDDuMmxjwQMlxSTkzbscibibDjE0rNJxRhpCgmk7xcZrkkWl3tlu1UWsmibfX3nJ93FlAVCw/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+
+下面我们看一下IntentService中的代码。
+
+![img](http://mmbiz.qpic.cn/mmbiz/ibuh47bPhianYgmJ0lbibDDuMmxjwQMlxSTO8QD9S1YNfsbpseDhazeHJLplSvQv4xiaS6PjRne1AmC2rT5lkFhmCw/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+![img](http://mmbiz.qpic.cn/mmbiz/ibuh47bPhianYgmJ0lbibDDuMmxjwQMlxSThDRPckUxibsNm9yicNEL07HEMW8NFic1dP3ehWYMt2S5VjPFCWejrK4Yg/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+    在上面的handleActionFoo方法中进行我们的耗时任务。然后我们在看一下Activity中的代码。
+
+![img](http://mmbiz.qpic.cn/mmbiz/ibuh47bPhianYgmJ0lbibDDuMmxjwQMlxSTwRIh3HDECYkicHnkUIB8SjanSUW59HrKBaNNbc6djlYUHu0pJDPupkA/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+![img](http://mmbiz.qpic.cn/mmbiz/ibuh47bPhianYgmJ0lbibDDuMmxjwQMlxSTTTiaDiacJZZmJTCbmBKRuHItpUV1pbrictSPx0oAiaEsia9sH22CdWLSb4Q/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+
+　　最后是布局代码。
+
+![img](http://mmbiz.qpic.cn/mmbiz/ibuh47bPhianYgmJ0lbibDDuMmxjwQMlxSTXoG5nZJrnP1Exh0KUFjriaVqEInkokB2ZdvLqTdYgz74yRl3mZSSmqw/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+
+　　对于上面代码实现起来都是非常的简单，在这里就不在进行详细介绍。
+
+**IntentService工作原理分析**
+
+　　其实对于IntentService的工作原理也不复杂，既然在IntentService中能够进行耗时操作，也就是说在这个IntentService中必然也创建了一个子线程，在Android中我们称为工作者线程。然后在这个工作者线程中进行我们的任务。在分析IntentService之前，我们先看一下HandlerThread。
+
+**HandlerThread**
+
+　　其实HandlerThread就是一个工作者线程，在这里看一下HandlerThread的源码。
+
+![img](http://mmbiz.qpic.cn/mmbiz/ibuh47bPhianYgmJ0lbibDDuMmxjwQMlxSTepsCEdZwVLB1fibYxF4RKttibspqmCrg2AcrsyiaibXibSUkn92aWOf86yA/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)　　![img](http://mmbiz.qpic.cn/mmbiz/ibuh47bPhianYgmJ0lbibDDuMmxjwQMlxSTKkbVSAAU3nkPr7Uybk9pBznvdejYPMZ6uwLAyNJ006t6EMXY6ib8ViaA/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+
+​    看过上篇文章 Android的消息机制——Handler的工作过程就很容易理解这个HandlerThread了。还记的我们在上篇文章的最后，新建了一个包含Looper的子线程。而这个HandlerThread也就是一个包含Looper的子线程。所以当我们需要创建一个包含Looper的线程时直接使用HandlerThread即可。对于HandlerThread有以下几点需要说明一下。 
+
+  　　1. 在构造方法中设置线程优先级的时候，使用的Process是android.os包中的而不是java.lang包内的。 
+  　　2. 如果在Looper开启消息循环之前我们进行一些设置，我们可以继承HandlerThread并且重写onLooperPrepared方法。 
+  　　3. 通过getLooper方法我们获取HandlerThread的Looper对象时，有可能Looper还未创建完成。所以在getLooper中未创建Looper是进行了线程等待操作，在创建完Looper以后在返回Looper对象。
+
+**IntentService**
+
+　　下面我们再看一下IntentService。
+
+![img](http://mmbiz.qpic.cn/mmbiz/ibuh47bPhianYgmJ0lbibDDuMmxjwQMlxSTKvgBvpPOQ2jF5pxJO2cQ0bJnm55xSO7K4EW6m62Zavjadb2hB2JNzw/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+![img](http://mmbiz.qpic.cn/mmbiz/ibuh47bPhianYgmJ0lbibDDuMmxjwQMlxSTxhw7cqTxFtMs3Y6QvTmRUAjHpDZQFzfVHqEVqowTS0g1RBP1WkxzXg/640?wx_fmt=png&tp=webp&wxfrom=5&wx_lazy=1&wx_co=1)
+
+　　我们看一下这个IntentService的构造是不是很简单。在这里主要看一下onCreate和onStart方法即可。在onCreate中，我们开启了一个HandlerThread线程，之后获取HandlerThread线程中的Looper，并通过这个Looper创建了一个Handler。然后在onStart方法中通过这个Handler将intent与startId作为Message的参数进行发送到消息队列中，然后交由Handler中的handleMessage中进行处理。由于在onStart方法是在主线程内运行的，而Handler是通过工作者线程HandlerThread中的Looper创建的。所以也就是在主线程中发送消息，在工作者接收到消息后便可以进行一些耗时的操作。 
+　　我们在看一下handleMessage中的操作，在handleMessage中调用onHandleIntent方法，他是一个抽象方法，所以在我们的Service中复写onHandleIntent方法并且将耗时的操作写在onHandleIntent方法内即可。当执行完onHandleIntent后通过stopSelf来停止服务，这样就不用我们手动停止服务了。所以也就回答了我们上面那个为什么要使用startService而不用onBind来开启一个IntentService。
+
+**总结**
+
+　　从我们的示例和源码分析中可以看出来。对于通过IntentService来执行任务，他是串行的。也就是说只有在上一个任务执行完以后才会执行下一个任务。因为Handler中将消息插入消息队列，而队列又是先进先出的数据结构。所以只有在上个任务执行完成以后才能够获取到下一个任务进行操作。在这里也就说明了对于高并发的任务同过IntentService是不合适.
+
+## 【ContentProvider专题】
+
+##### [1] ContentProvider是什么？
+
+　　**ContentProvider（内容提供者）是Android的四大组件之一**，管理android以结构化方式存放的数据，以相对安全的方式封装数据（表）并且提供简易的处理机制和统一的访问接口供**其他程序**调用。Android的数据存储方式总共有五种，分别是：**Shared Preferences、网络存储、文件存储、外储存储、SQLite**。但一般这些存储都只是在单独的一个应用程序之中达到一个数据的共享，有时候**我们需要操作其他应用程序的一些数据，就会用到ContentProvider**。而且Android为常见的一些数据提供了默认的ContentProvider（包括音频、视频、图片和通讯录等）。
+
+　　但注意**ContentProvider它也只是一个中间人**，真正操作的数据源可能是数据库，也可以是文件、xml或网络等其他存储方式。
+
+##### [2] URL
+
+　　URL（统一资源标识符）代表要操作的数据，可以用来标识每个ContentProvider，这样你就可以通过指定的URI找到想要的ContentProvider, 从中获取或修改数据。在Android中URI的格式如下图所示：
+
+[![这里写图片描述](https://camo.githubusercontent.com/1e138aeb9ce10fa4b788b18659fae3d8d29da73a/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313630353035313534333232303435)](https://camo.githubusercontent.com/1e138aeb9ce10fa4b788b18659fae3d8d29da73a/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313630353035313534333232303435)　
+
+　　
+
+- Ａ： schema，已经由Android所规定为：content://．　 　　　
+- Ｂ：主机名（Authority），是URI的授权部分，是唯一标识符，用来定位ContentProvider。
+
+> Ｃ部分和D部分：是每个ContentProvider内部的路径部分
+
+- Ｃ：指向一个对象集合，一般用表的名字，如果没有指定D部分，则返回全部记录。
+
+- Ｄ：指向特定的记录，这里表示操作user表id为7的记录。如果要操作user表中id为7的记录的name字段， D部分变为       **/7/name**即可。
+
+> URI模式匹配通配符
+>
+> *：匹配的任意长度的任何有效字符的字符串。
+>
+> ＃：匹配的任意长度的数字字符的字符串。
+>
+> 如：
+>
+> content://com.example.app.provider/* 匹配provider的任何内容url
+>
+> content://com.example.app.provider/table3/# 匹配table3的所有行
+
+**2.１MIME**
+
+　　MIME是指定某个扩展名的文件用一种应用程序来打开，就像你用浏览器查看PDF格式的文件，浏览器会选择合适的应用来打开一样。Android中的工作方式跟HTTP类似，ContentProvider会根据URI来返回MIME类型，ContentProvider会返回一个包含两部分的字符串。MIME类型一般包含两部分，如：
+
+> text/html text/css text/xml application/pdf
+
+　　分为类型和子类型，Android遵循类似的约定来定义MIME类型，每个内容类型的Android MIME类型有两种形式：多条记录（集合）和单条记录。
+
+　　集合记录：
+
+```
+vnd.android.cursor.dir/自定义
+```
+
+　　单条记录：
+
+```
+vnd.android.cursor.item/自定义
+```
+
+　　vnd表示这些类型和子类型具有非标准的、供应商特定的形式。Android中类型已经固定好了，不能更改，只能区别是集合还是单条具体记录，子类型可以按照格式自己填写。在使用Intent时，会用到MIME，根据Mimetype打开符合条件的活动。
+
+　　下面分别介绍Android系统提供了两个用于操作Uri的工具类：ContentUris和UriMatcher。
+
+**2.２ ContentUris**
+
+　　ContetnUris包含一个便利的函数withAppendedId()来向URI追加一个id。
+
+```
+Uri uri = Uri.parse("content://cn.scu.myprovider/user")
+Uri resultUri = ContentUris.withAppendedId(uri, 7); 
+
+//生成后的Uri为：content://cn.scu.myprovider/user/7
+```
+
+　　同时提供parseId(uri)方法用于从URL中获取ID:
+
+```
+Uri uri = Uri.parse("content://cn.scu.myprovider/user/7")
+long personid = ContentUris.parseId(uri);
+//获取的结果为:7
+```
+
+**2.３UriMatcher**
+
+　　UriMatcher本质上是一个文本过滤器，用在contentProvider中帮助我们过滤，分辨出查询者想要查询哪个数据表。
+
+　　举例说明：
+
+- 第一步，初始化：
+
+```
+UriMatcher matcher = new UriMatcher(UriMatcher.NO_MATCH);
+//常量UriMatcher.NO_MATCH表示不匹配任何路径的返回码
+```
+
+- 第二步，注册需要的Uri：
+
+```
+//USER 和 USER_ID是两个int型数据
+matcher.addURI("cn.scu.myprovider", "user", USER);
+matcher.addURI("cn.scu.myprovider", "user/#",USER_ID);
+//如果match()方法匹配content://cn.scu.myprovider/user路径，返回匹配码为USER
+```
+
+- 第三部，与已经注册的Uri进行匹配:
+
+```
+/* 
+     * 如果操作集合，则必须以vnd.android.cursor.dir开头 
+     * 如果操作非集合，则必须以vnd.android.cursor.item开头 
+     * */  
+    @Override  
+    public String getType(Uri uri) {  
+    Uri uri = Uri.parse("content://" + "cn.scu.myprovider" + "/user");  
+        switch(matcher.match(uri)){  
+        case USER:  
+            return "vnd.android.cursor.dir/user";  
+        case USER_ID:  
+            return "vnd.android.cursor.item/user";  
+        }  
+    } 
+```
+
+##### [3] ContentProvider的主要方法
+
+> public boolean onCreate()
+
+　　ContentProvider创建后或打开系统后其它应用第一次访问该ContentProvider时调用。
+
+> public Uri insert(Uri uri, ContentValues values)
+
+　　外部应用向ContentProvider中添加数据。
+
+> public int delete(Uri uri, String selection, String[] selectionArgs)
+
+　　外部应用从ContentProvider删除数据。
+
+> public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs)：
+
+　　外部应用更新ContentProvider中的数据。
+
+> public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder)　
+
+　　供外部应用从ContentProvider中获取数据。 　
+
+> public String getType(Uri uri)
+
+　　该方法用于返回当前Url所代表数据的MIME类型。
+
+##### [4] ContentResolver
+
+　　ContentResolver通过URI来查询ContentProvider中提供的数据。除了URI以 外，还必须知道需要获取的数据段的名称，以及此数据段的数据类型。如果你需要获取一个特定的记录，你就必须知道当前记录的ID，也就是URI中D部分。
+
+　　ContentResolver 类提供了与ContentProvider类相同签名的四个方法：
+
+> public Uri insert(Uri uri, ContentValues values)　//添加
+
+> public int delete(Uri uri, String selection, String[] selectionArgs)　//删除
+>
+> public int update(Uri uri, ContentValues values, String selection, String[] selectionArgs)　//更新
+>
+> public Cursor query(Uri uri, String[] projection, String selection, String[] selectionArgs, String sortOrder)//获取
+
+实例代码：
+
+```
+ContentResolver resolver =  getContentResolver();
+Uri uri = Uri.parse("content://cn.scu.myprovider/user");
+
+//添加一条记录
+ContentValues values = new ContentValues();
+values.put("name", "fanrunqi");
+values.put("age", 24);
+resolver.insert(uri, values);  
+
+//获取user表中所有记录
+Cursor cursor = resolver.query(uri, null, null, null, "userid desc");
+while(cursor.moveToNext()){
+   //操作
+}
+
+//把id为1的记录的name字段值更改新为finch
+ContentValues updateValues = new ContentValues();
+updateValues.put("name", "finch");
+Uri updateIdUri = ContentUris.withAppendedId(uri, 1);
+resolver.update(updateIdUri, updateValues, null, null);
+
+//删除id为2的记录
+Uri deleteIdUri = ContentUris.withAppendedId(uri, 2);
+resolver.delete(deleteIdUri, null, null);
+```
+
+##### [5] ContentObserver
+
+　　　 ContentObserver(内容观察者)，目的是观察特定Uri引起的数据库的变化，继而做一些相应的处理，它类似于数据库技术中的触发器(Trigger)，当ContentObserver所观察的Uri发生变化时，便会触发它.
+
+```
+下面是使用内容观察者监听短信的例子：
+public class MainActivity extends Activity {
+ 
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+         
+//注册观察者Observser    
+this.getContentResolver().registerContentObserver(Uri.parse("content://sms"),true,new SMSObserver(new Handler()));
+ 
+    }
+ 
+    private final class SMSObserver extends ContentObserver {
+ 
+        public SMSObserver(Handler handler) {
+            super(handler);
+ 
+        }
+ 
+     
+        @Override
+        public void onChange(boolean selfChange) {
+ 
+ Cursor cursor = MainActivity.this.getContentResolver().query(
+Uri.parse("content://sms/inbox"), null, null, null, null);
+ 
+            while (cursor.moveToNext()) {
+                StringBuilder sb = new StringBuilder();
+ 
+                sb.append("address=").append(
+                        cursor.getString(cursor.getColumnIndex("address")));
+ 
+                sb.append(";subject=").append(
+                        cursor.getString(cursor.getColumnIndex("subject")));
+ 
+                sb.append(";body=").append(
+                        cursor.getString(cursor.getColumnIndex("body")));
+ 
+                sb.append(";time=").append(
+                        cursor.getLong(cursor.getColumnIndex("date")));
+ 
+                System.out.println("--------has Receivered SMS::" + sb.toString());
+ 
+                 
+            }
+ 
+        }
+ 
+    }
+}
+```
+
+同时可以在ContentProvider发生数据变化时调用 getContentResolver().notifyChange(uri, null)来通知注册在此URI上的访问者。
+
+　　
+
+```
+public class UserContentProvider extends ContentProvider {
+   public Uri insert(Uri uri, ContentValues values) {
+      db.insert("user", "userid", values);
+      getContext().getContentResolver().notifyChange(uri, null);
+   }
+}
+```
+
+##### [6] 实例说明
+
+　　数据源是SQLite, 用ContentResolver操作ContentProvider。
+
+![img](https://camo.githubusercontent.com/1302cfe3a60f9edf38daa5202d006ea98ae7d9af/687474703a2f2f696d672e626c6f672e6373646e2e6e65742f3230313630353035313935313433303939)
+
+Constant.java（储存一些常量）
+
+```
+public class Constant {  
+      
+    public static final String TABLE_NAME = "user";  
+      
+    public static final String COLUMN_ID = "_id";  
+    public static final String COLUMN_NAME = "name";  
+       
+       
+    public static final String AUTOHORITY = "cn.scu.myprovider";  
+    public static final int ITEM = 1;  
+    public static final int ITEM_ID = 2;  
+       
+    public static final String CONTENT_TYPE = "vnd.android.cursor.dir/user";  
+    public static final String CONTENT_ITEM_TYPE = "vnd.android.cursor.item/user";  
+       
+    public static final Uri CONTENT_URI = Uri.parse("content://" + AUTOHORITY + "/user");  
+}  
+```
+
+DBHelper.java(操作数据库)
+
+```
+public class DBHelper extends SQLiteOpenHelper {  
+  
+    private static final String DATABASE_NAME = "finch.db";    
+    private static final int DATABASE_VERSION = 1;    
+  
+    public DBHelper(Context context) {  
+        super(context, DATABASE_NAME, null, DATABASE_VERSION);  
+    }  
+  
+    @Override  
+    public void onCreate(SQLiteDatabase db)  throws SQLException {  
+        //创建表格  
+        db.execSQL("CREATE TABLE IF NOT EXISTS "+ Constant.TABLE_NAME + "("+ Constant.COLUMN_ID +" INTEGER PRIMARY KEY AUTOINCREMENT," + Constant.COLUMN_NAME +" VARCHAR NOT NULL);");  
+    }  
+  
+    @Override  
+    public void onUpgrade(SQLiteDatabase db, int oldVersion, int newVersion)  throws SQLException {  
+        //删除并创建表格  
+        db.execSQL("DROP TABLE IF EXISTS "+ Constant.TABLE_NAME+";");  
+        onCreate(db);  
+    }  
+}  
+```
+
+　MyProvider.java(自定义的ContentProvider)　
+
+```
+public class MyProvider extends ContentProvider {    
+    
+    DBHelper mDbHelper = null;    
+    SQLiteDatabase db = null;    
+    
+    private static final UriMatcher mMatcher;    
+    static{    
+        mMatcher = new UriMatcher(UriMatcher.NO_MATCH);    
+        mMatcher.addURI(Constant.AUTOHORITY,Constant.TABLE_NAME, Constant.ITEM);    
+        mMatcher.addURI(Constant.AUTOHORITY, Constant.TABLE_NAME+"/#", Constant.ITEM_ID);    
+    }    
+    
+  
+    @Override    
+    public String getType(Uri uri) {    
+        switch (mMatcher.match(uri)) {    
+        case Constant.ITEM:    
+            return Constant.CONTENT_TYPE;    
+        case Constant.ITEM_ID:    
+            return Constant.CONTENT_ITEM_TYPE;    
+        default:    
+            throw new IllegalArgumentException("Unknown URI"+uri);    
+        }    
+    }    
+    
+    @Override    
+    public Uri insert(Uri uri, ContentValues values) {    
+        // TODO Auto-generated method stub    
+        long rowId;    
+        if(mMatcher.match(uri)!=Constant.ITEM){    
+            throw new IllegalArgumentException("Unknown URI"+uri);    
+        }    
+        rowId = db.insert(Constant.TABLE_NAME,null,values);    
+        if(rowId>0){    
+            Uri noteUri=ContentUris.withAppendedId(Constant.CONTENT_URI, rowId);    
+            getContext().getContentResolver().notifyChange(noteUri, null);    
+            return noteUri;    
+        }    
+    
+        throw new SQLException("Failed to insert row into " + uri);    
+    }    
+    
+    @Override    
+    public boolean onCreate() {    
+        // TODO Auto-generated method stub    
+        mDbHelper = new DBHelper(getContext());    
+    
+        db = mDbHelper.getReadableDatabase();    
+    
+        return true;    
+    }    
+    
+    @Override    
+    public Cursor query(Uri uri, String[] projection, String selection,    
+            String[] selectionArgs, String sortOrder) {    
+        // TODO Auto-generated method stub    
+        Cursor c = null;    
+        switch (mMatcher.match(uri)) {    
+        case Constant.ITEM:    
+            c =  db.query(Constant.TABLE_NAME, projection, selection, selectionArgs, null, null, sortOrder);    
+            break;    
+        case Constant.ITEM_ID:    
+            c = db.query(Constant.TABLE_NAME, projection,Constant.COLUMN_ID + "="+uri.getLastPathSegment(), selectionArgs, null, null, sortOrder);    
+            break;    
+        default:    
+            throw new IllegalArgumentException("Unknown URI"+uri);    
+        }    
+    
+        c.setNotificationUri(getContext().getContentResolver(), uri);    
+        return c;    
+    }    
+    
+    @Override    
+    public int update(Uri uri, ContentValues values, String selection,    
+            String[] selectionArgs) {    
+        // TODO Auto-generated method stub    
+        return 0;    
+    }
+
+	@Override
+	public int delete(Uri uri, String selection, String[] selectionArgs) {
+		// TODO Auto-generated method stub
+		return 0;
+	}    
+    
+}    
+```
+
+MainActivity.java(ContentResolver操作)
+
+```
+public class MainActivity extends Activity {
+    private ContentResolver mContentResolver = null; 
+    private Cursor cursor = null;  
+         @Override
+        protected void onCreate(Bundle savedInstanceState) {
+        	// TODO Auto-generated method stub
+        	super.onCreate(savedInstanceState);
+        	setContentView(R.layout.activity_main);
+        	
+        	   TextView tv = (TextView) findViewById(R.id.tv);
+				
+        		mContentResolver = getContentResolver();  
+        		tv.setText("添加初始数据 ");
+                for (int i = 0; i < 10; i++) {  
+                    ContentValues values = new ContentValues();  
+                    values.put(Constant.COLUMN_NAME, "fanrunqi"+i);  
+                    mContentResolver.insert(Constant.CONTENT_URI, values);  
+                } 
+                
+            	tv.setText("查询数据 ");
+                cursor = mContentResolver.query(Constant.CONTENT_URI, new String[]{Constant.COLUMN_ID,Constant.COLUMN_NAME}, null, null, null);  
+                if (cursor.moveToFirst()) {
+                	String s = cursor.getString(cursor.getColumnIndex(Constant.COLUMN_NAME));
+                	tv.setText("第一个数据： "+s);
+                }
+        }
+         
+}  
+```
+
+最后在manifest申明
+
+```
+<provider android:name="MyProvider" android:authorities="cn.scu.myprovider" />
+```
+
+## 【BroadcastReceiver专题】
+
+##### [1] BroadcastReceiver的定义
+
+广播是一种广泛运用的在应用程序之间传输信息的机制，主要用来监听系统或者应用发出的广播信息，然后根据广播信息作为相应的逻辑处理，也可以用来传输少量、频率低的数据。
+
+在实现开机启动服务和网络状态改变、电量变化、短信和来电时通过接收系统的广播让应用程序作出相应的处理。
+
+BroadcastReceiver **自身并不实现图形用户界面**，但是当它收到某个通知后， BroadcastReceiver 可以通过启动 Service 、启动 Activity 或是 NotificationMananger 提醒用户。
+
+##### [2] BroadcastReceiver使用注意
+
+　　当系统或应用发出广播时，将会扫描系统中的所有广播接收者，通过action匹配将广播发送给相应的接收者，接收者收到广播后将会产生一个广播接收者的实例，执行其中的onReceiver()这个方法；特别需要注意的是这个实例的生命周期只有10秒，如果10秒内没执行结束onReceiver()，系统将会报错。
+
+在onReceiver()执行完毕之后，该实例将会被销毁，所以不要在onReceiver()中执行耗时操作，也不要在里面创建子线程处理业务（因为可能子线程没处理完，接收者就被回收了，那么子线程也会跟着被回收掉）；正确的处理方法就是通过in调用activity或者service处理业务。
+
+##### [3] BroadcastReceiver的注册
+
+　　BroadcastReceiver的注册方式有且只有两种，一种是**静态注册**（推荐使用），另外一种是**动态注册**，广播接收者在注册后就开始监听系统或者应用之间发送的广播消息。
+
+**接收短信广播示例**：
+
+定义自己的BroadcastReceiver 类
+
+```
+public class MyBroadcastReceiver extends BroadcastReceiver {
+ 
+// action 名称
+String SMS_RECEIVED = "android.provider.Telephony.SMS_RECEIVED" ;
+ 
+    public void onReceive(Context context, Intent intent) {
+ 
+       if (intent.getAction().equals( SMS_RECEIVED )) {
+           // 一个receiver可以接收多个action的，即可以有多个intent-filter，需要在onReceive里面对intent.getAction(action name)进行判断。
+       }
+    }
+}
+```
+
+**静态方式**
+
+　　在AndroidManifest.xml的application里面定义receiver并设置要接收的action。
+
+```
+< receiver android:name = ".MyBroadcastReceiver" > 
+
+ < intent-filter android:priority = "777" >             
+<action android:name = "android.provider.Telephony.SMS_RECEIVED" />
+</ intent-filter > 
+
+</ receiver >
+```
+
+　　这里的priority取值是-1000到1000，值越大优先级越高，同时注意加上系统接收短信的限权。
+
+```
+< uses-permission android:name ="android.permission.RECEIVE_SMS" />
+```
+
+　　静态注册的广播接收者是一个常驻在系统中的全局监听器，当你在应用中配置了一个静态的BroadcastReceiver，安装了应用后而无论应用是否处于运行状态，广播接收者都是已经常驻在系统中了。同时应用里的所有receiver都在清单文件里面，方便查看。要销毁掉静态注册的广播接收者，可以通过调用PackageManager将Receiver禁用。
+
+**动态方式**
+
+　　在Activity中声明BroadcastReceiver的扩展对象，在onResume中注册，onPause中卸载. 　　　
+
+```
+public class MainActivity extends Activity {
+	MyBroadcastReceiver receiver;
+	@Override
+	 protected void onResume() {
+		// 动态注册广播 (代码执行到这才会开始监听广播消息，并对广播消息作为相应的处理)
+		receiver = new MyBroadcastReceiver();
+		IntentFilter intentFilter = new IntentFilter( "android.provider.Telephony.SMS_RECEIVED" );
+		registerReceiver( receiver , intentFilter);	
+		super.onResume();
+	}
+	@Override
+	protected void onPause() {  
+		// 撤销注册 (撤销注册后广播接收者将不会再监听系统的广播消息)
+		unregisterReceiver(receiver);
+		super.onPause();
+	}
+}
+```
+
+**静态注册和动态注册的区别**
+
+　　1、静态注册的广播接收者一经安装就常驻在系统之中，不需要重新启动唤醒接收者；动态注册的广播接收者随着应用的生命周期，由registerReceiver开始监听，由unregisterReceiver撤销监听，如果应用退出后，没有撤销已经注册的接收者应用应用将会报错。
+
+　　2、当广播接收者通过intent启动一个activity或者service时，如果intent中无法匹配到相应的组件。动态注册的广播接收者将会导致应用报错 而静态注册的广播接收者将不会有任何报错，因为自从应用安装完成后，广播接收者跟应用已经脱离了关系。　
+
+##### [4] 发送BroadcastReceiver
+
+**发送广播主要有两种类型：**
+
+**普通广播**：应用在需要通知各个广播接收者的情况下使用，如开机启动
+
+使用方法：sendBroadcast()
+
+```
+Intent intent = new Intent("android.provider.Telephony.SMS_RECEIVED"); 
+//通过intent传递少量数据
+intent.putExtra("data", "finch"); 
+// 发送普通广播
+sendBroadcast(Intent); 
+```
+
+　　普通广播是完全异步的，可以在同一时刻（逻辑上）被所有接收者接收到，所有满足条件的BroadcastReceiver 都会随机地执行其 onReceive() 方法。
+
+ 　　同级别接收是先后是随机的；级别低的收到广播；
+
+ 　　消息传递的效率比较高，并且无法中断广播的传播。
+
+**有序广播**：应用在需要有特定拦截的场景下使用，如黑名单短信、电话拦截。　
+
+使用方法：
+
+　`sendOrderedBroadcast(intent, receiverPermission);`
+
+　`receiverPermission` ：一个接收器必须持以接收您的广播。如果为 null ，不经许可的要求（一般都为null）。
+
+```
+//发送有序广播
+ sendOrderedBroadcast(intent, null);
+```
+
+　　在有序广播中，我们可以在前一个广播接收者将处理好的数据传送给后面的广播接收者，也可以调用abortBroadcast()来终结广播的传播。
+
+```
+public void onReceive(Context arg0, Intent intent) {
+　　//获取上一个广播的bundle数据
+　　Bundle bundle = getResultExtras(true);//true：前一个广播没有结果时创建新的Bundle；false：不创建Bundle
+　　bundle.putString("key", "777");
+　　//将bundle数据放入广播中传给下一个广播接收者
+　　setResultExtras(bundle);　
+　　
+　　//终止广播传给下一个广播接收者
+　　abortBroadcast();
+}
+```
+
+　　高级别的广播收到该广播后，可以决定把该广播是否截断掉。同级别接收是先后是随机的，如果先接收到的把广播截断了，同级别的例外的接收者是无法收到该广播。 　　
+
+异步广播
+
+使用方法：`sendStickyBroadcast()` ：
+
+　　发出的Intent当接收Activity（动态注册）重新处于onResume状态之后就能重新接受到其Intent.（the Intent will be held to be re-broadcast to future receivers）。就是说sendStickyBroadcast发出的最后一个Intent会被保留，下次当Activity处于活跃的时候又会接受到它。
+
+发这个广播需要权限：
+
+```
+<uses-permission android:name="android.permission.BROADCAST_STICKY" />
+```
+
+卸载该广播：
+
+```
+removeStickyBroadcast(intent);
+```
+
+　　在卸载之前该intent会保留，接收者在可接收状态都能获得。
+
+**异步有序广播**
+
+　　使用方法：`sendStickyOrderedBroadcast(intent, resultReceiver, scheduler, initialCode, initialData, initialExtras)`：
+
+　　这个方法具有有序广播的特性也有异步广播的特性； 　　同时需要限权：
+
+```
+ <uses-permission android:name="android.permission.BROADCAST_STICKY" /> 
+```
+
+##### [5] 总结
+
+- 静态广播接收的处理器是由PackageManagerService负责，当手机启动或者新安装了应用的时候，PackageManagerService会扫描手机中所有已安装的APP应用，将AndroidManifest.xml中有关注册广播的信息解析出来，存储至一个全局静态变量当中。
+- 动态广播接收的处理器是由ActivityManagerService负责，当APP的服务或者进程起来之后，执行了注册广播接收的代码逻辑，即进行加载，最后会存储在一个另外的全局静态变量中。需要注意的是：
+
+　　 1、 这个并非是一成不变的，当程序被杀死之后，已注册的动态广播接收器也会被移出全局变量，直到下次程序启动，再进行动态广播的注册，当然这里面的顺序也已经变更了一次。
+
+　　 2、这里也并没完整的进行广播的排序，只记录的注册的先后顺序，并未有结合优先级的处理。
+
+- 广播发出的时候，广播接收者接收的顺序如下：
+
+　　１．当广播为**普通广播**时，有如下的接收顺序：
+
+无视优先级
+
+动态优先于静态 
+
+同优先级的动态广播接收器，**先注册的大于后注册的**
+
+同优先级的静态广播接收器，**先扫描的大于后扫描的**　
+
+　　２．如果广播为**有序广播**，那么会将动态广播处理器和静态广播处理器合并在一起处理广播的消息，最终确定广播接收的顺序：
+
+优先级高的先接收　 　　
+
+同优先级的动静态广播接收器，**动态优先于静态** 　　
+
+同优先级的动态广播接收器，**先注册的大于后注册的** 　　
+
+同优先级的静态广播接收器，**先扫描的大于后扫描的**　
+
+##### [6]一些常用的系统广播的action 和permission
+
+- 开机启动
+
+```
+<action android:name="android.intent.action.BOOT_COMPLETED"/> 
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />  
+```
+
+- 网络状态
+
+```
+<action android:name="android.net.conn.CONNECTIVITY_CHANGE"/>  
+<uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/> 
+```
+
+　　　网络是否可用的方法：
+
+```
+  public static boolean isNetworkAvailable(Context context) {  
+        ConnectivityManager mgr = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);  
+        NetworkInfo[] info = mgr.getAllNetworkInfo();  
+        if (info != null) {  
+            for (int i = 0; i < info.length; i++) {  
+      if (info[i].getState() == NetworkInfo.State.CONNECTED) {  
+                    return true;  
+                }  
+            }  
+        }  
+        return false;  
+    } 
+```
+
+- 电量变化
+
+```
+<action android:name="android.intent.action.BATTERY_CHANGED"/>  
+```
+
+BroadcastReceiver 的onReceive方法：
+
+```
+public void onReceive(Context context, Intent intent) {  
+        int currLevel = intent.getIntExtra(BatteryManager.EXTRA_LEVEL, 0);  //当前电量  　
+        
+        int total = intent.getIntExtra(BatteryManager.EXTRA_SCALE, 1);    //总电量  
+        int percent = currLevel * 100 / total;  
+        Log.i(TAG, "battery: " + percent + "%");  
+    }  
+```
+
+## 
