@@ -1880,6 +1880,47 @@ View和ViewGroup的区别：
 
 ​     5.drawChild(Canvas canvas, View child, long drawingTime)：ViewGroup及其派生类具有的方法，用于直接绘制具体的子View。自定义控件时，重载该方法可以直接绘制具体的子View。
 
+#### 13. Application的生命周期
+
+1. **onCreate（）** 程序创建的时候执行；
+2. **onTerminate（）** 程序终止的时候执行；在模拟环境下执行。当终止应用程序对象时调用，不保证一定被调用，当程序是被内核终止以便为其他应用程序释放资源，那么将不会提醒，并且不调用应用程序Application对象的onTerminate方法而直接终止进程。
+3. **onLowMemory（）** 低内存的时候执行好的应用程序一般会在这个方法里面释放一些不必要的资源来应付当后台程序已经终止，前台应用程序内存还不够时的情况。
+4. **onConfigurationChanged（Configuration newConfig）** 配置改变时触发这个方法。
+5. **onTrimMemory（int level）**程序在进行内存清理时执行
+
+~~~java
+class MyApplication : Application(){
+ 
+    //应用创建时调用
+    override fun onCreate() {
+        super.onCreate()
+    }
+ 
+    //在低内存时被调用
+    override fun onLowMemory() {
+        super.onLowMemory()
+    }
+ 
+    //程序终止的时候被调用，该函数不一定会执行，
+    //或者说不会在真机环境下被执行，通过该方法的注释，我们可以得知
+    //该方法只有在模拟器环境下才会被执行
+    override fun onTerminate() {
+        super.onTerminate()
+    }
+ 
+    //程序在内存清理的时候被执行
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+    }
+ 
+    //系统设置被修改时调用
+    override fun onConfigurationChanged(newConfig: Configuration) {
+        super.onConfigurationChanged(newConfig)
+    }
+~~~
+
+
+
 ## 【Activity专题】
 
 ##### [1] Activity是什么？
@@ -2685,8 +2726,8 @@ public class MainActivity extends Activity {
 ​    看过上篇文章 Android的消息机制——Handler的工作过程就很容易理解这个HandlerThread了。还记的我们在上篇文章的最后，新建了一个包含Looper的子线程。而这个HandlerThread也就是一个包含Looper的子线程。所以当我们需要创建一个包含Looper的线程时直接使用HandlerThread即可。对于HandlerThread有以下几点需要说明一下。 
 
   　　1. 在构造方法中设置线程优先级的时候，使用的Process是android.os包中的而不是java.lang包内的。 
-    　　2. 如果在Looper开启消息循环之前我们进行一些设置，我们可以继承HandlerThread并且重写onLooperPrepared方法。 
-      　　3. 通过getLooper方法我们获取HandlerThread的Looper对象时，有可能Looper还未创建完成。所以在getLooper中未创建Looper是进行了线程等待操作，在创建完Looper以后在返回Looper对象。
+        　　2. 如果在Looper开启消息循环之前我们进行一些设置，我们可以继承HandlerThread并且重写onLooperPrepared方法。 
+            　　3. 通过getLooper方法我们获取HandlerThread的Looper对象时，有可能Looper还未创建完成。所以在getLooper中未创建Looper是进行了线程等待操作，在创建完Looper以后在返回Looper对象。
 
 **IntentService**
 
