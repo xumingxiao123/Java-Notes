@@ -1803,6 +1803,119 @@ QQ和Qzone 的内存泄漏采用SNGAPM解决方案，SNGAPM是一个性能监控
 
 由于不同的进程拥有不同的数据空间，所以无论是应用内还是应用间，均无法通过共享内存来实现进程间通信。
 
+##### **[1] 使用Bundle ( 搬豆 ) 的方式**
+
+在Android中三大组件（Activity，Service，Receiver）都支持在Intent中传递Bundle数据，由于Bundle实现了Parcelable接口（一种特有的序列化方法），所以它可以很方便的在不同的进程之间进行传输。当在一个进程中启动另外一个进程的Activity，Service，Receiver时，可以在Bundle中附加需要传输给远程的进程的信息，并通过Intent发送出去。
+
+putExtras(Bundle data)：向Intent中放入所需要“携带”的数据包。
+
+Bundle getExtras()：取出Intent中所“携带”的数据包。
+
+**注意：我们传输的数据必须基本数据类型或者能够被序列化。**
+
+ **利用Bundle进行进程间通信，只能是单方向的简单数据传输，使用有一定的局限性。**
+
+##### **[2] 使用文件共享的方式**
+
+**文件共享：**将对象序列化之后保存到文件中，在通过反序列，将对象从文件中读取出来。此方式对文件的格式没有具体的要求，可以是文件、XML、JSON等。
+
+**文件共享方式也存在着很大的局限性，如并发读/写问题，如读取的数据不完整或者读取的数据不是最新的。**文件共享适合在对数据同步要求不高的进程间通信，并且要妥善处理并发读/写的问题。
+
+##### **[3] 使用Messenger的方式**
+
+​    我们也可以通过Messenger来进行进程间通信，在Messenger中放入我们需要传递的数据，实现进程间数据传递。Messenger只能传递Message对象，Messenger是一种轻量级的IPC方案，它的底层实现是AIDL。
+
+服务端
+
+（1）：创建Service；
+
+（2）：构造Handler对象，实现handlerMessage方法；
+
+（3）：通过Handler对象，构造Messenger对象；
+
+（4）：通过Service的onBind()返回这个Messenger对象底层的Binder对象；
+
+客户端
+
+（1）：创建Actvity；
+
+（2）：绑定远程进程Service；
+
+（3）：创建ServiceConnection,监听绑定服务的回调；
+
+（4）：通过onServiceConnected()方法的参数，构造客户端Messenger对象；
+
+（5）：通过Messenger向服务端发送消息。
+
+Messenger的工作原理图：
+
+![image-20200921093824422](X:\Users\xu\AppData\Roaming\Typora\typora-user-images\image-20200921093824422.png)
+
+Messenger内部消息处理使用Handler实现的，所以它是以串行的方式处理客服端发送过来的消息的，如果有大量的消息发送给服务器端，服务器端只能一个一个处理，如果并发量大的话用Messenger就不合适了，而且Messenger的主要作用就是为了传递消息，很多时候我们需要跨进程调用服务器端的方法，这种需求Messenger就无法做到了。
+
+##### **[4] 使用AIDL的方式**
+
+AIDL（Android Interface Definition Language）是一种IDL语言，用于生成可以在Android设备上两个进程之间进行进程间通信（IPC）的代码。
+
+如果在一个进程中（例如Activity）要调用另一个进程中（例如Service）对象的操作，就可以使用AIDL生成可序列化的参数。AIDL是IPC的一个轻量级实现，Android也提供了一个工具，可以自动创建Stub（类架构，类骨架）。在应用间通信时，需要以下几步：
+
+（1）：定义一个AIDL接口；
+
+（2）：为远程服务（Service）实现对应Stub；
+
+（3）：将服务“暴露”给客户程序使用；
+
+只有当你允许来自不同的客户端访问你的服务并且需要处理多线程问题时你才必须使用AIDL，其他情况下都可以选择其他方法。**AIDL是处理多线程、多客户端并发访问的，而Messenger是单线程处理。**
+
+##### **[5] 使用ContentProvider的方式**
+
+ContentProvider（内容提供者）是Android中的四大组件之一，为了在应用程序之间进行数据交换，Android提供了ContentProvider，ContentProvider是不同应用之间进行数据交换的API，一旦某个应用程序通过ContentProvider暴露了自己的数据操作的接口，那么不管该应用程序是否启动，其他的应用程序都可以通过接口来操作接口内的数据，包括数据的增、删、改、查等操作。
+
+开发一个ContentProvider：
+
+（1）：定义自己的ContentProvider类，该类集成ContentProvider基类；
+
+（2）：在AndroidMainfest.xml中注册这个ContentProvider，注册时要给ContentProvider绑定一个域名；
+
+（3）：当注册好这个ContentProvider后，其他应用就可以访问ContentProvider暴露出来的数据了。
+
+ContentProvider只是暴露出来可供其他应用操作的数据，其他应用则需要通过ContentProvider来操作。
+
+使用ContentResolver操作数据：
+
+（1）：调用Activity的getContentResolver()获取ContentResolver对象；
+
+（2）：根据调用的ContentResolver的insert()、delete()、update()和query()方法操作数据库。
+
+##### [6] 使用广播接收者（Broadcast）的方式
+
+广播是一种被动跨进程通信方式。当某个程序向系统发送广播时，其他的应用程序只能被动地接收广播数据。
+
+Broadcast Receiver本质上是一个系统级的监听器，它专门监听各个程序发出的Broadcast，因此它拥有自己的进程，只要存在与之匹配的Intent被广播出来，Broadcast Receiver总会被激发。只要注册了某个广播之后，广播接收者才能收到该广播。广播注册的一个行为是将自己感兴趣的Intent Filter注册到Android系统的AMS（Activity Manager Service）中，里面保存了一个Intent Filter列表。广播发送者将Intent Filter的action行为发送到AMS中，然后遍历AMS中的Intent Filter列表，看谁订阅了该广播，然后将消息遍历发送到注册了相应的Intent Filter或者Service中---也就是说：会调用抽象方法onReceive()方法。其中AMS起到了中间桥梁的作用。
+
+程序启动Broadcast Receiver：
+
+（1）：创建需要启动的Broadcast Receiver的intent；
+
+（2）：调用Context的sendBroadcast()或者sendOrderBroadcast()方法来启动指定的BroadcastReceivert。
+
+每当Broadcast事件发生后，系统会创建对应的Broadcast Receiver实例，并自动触发onReceiver()方法，onReceiver()方法执行完后，BroadcastReceiver实例就会被销毁。
+
+**Tips：**onReceiver()方法中尽量不要做耗时操作，如果onReceiver()方法不能再10秒之内完成事件的处理，Android会认为该进程无响应，也就弹出我们熟悉的ANR。
+
+##### **[7] 使用Socket的方式**
+
+Socket也是实现进程间通信的一种方式，Socket也称为“套接字”（网络通信中概念），通过Socket也可以实现跨进程通信，Socaket主要还是应用在网络通信中。
+
+##### **[8] Android 进程间通信不同方式的比较**
+
+- Bundle:四大组件间的进程间通信方式，简单易用，但传输的数据类型受限。
+- 文件共享： 不适合高并发场景，并且无法做到进程间的及时通信。
+- Messenger: 数据通过Message传输，只能传输Bundle支持的类型。
+- ContentProvider：android 系统提供的，简单易用，但使用受限，只能根据特定规则访问数据。
+- AIDL:功能强大，支持实时通信，但使用稍微复杂。
+- Socket：网络数据交换的常用方式。
+
 #### 11.okhttp原理
 
 > https://www.jianshu.com/p/d98be38a6d3f 
@@ -3636,7 +3749,1248 @@ class MyApplication : Application(){
     }
 ~~~
 
+#### 14. Android多线程方式
 
+##### [1] 前言
+
+在Android开发中经常会使用到多线程，这里主要是总结Android开发中常见的多线程实现方式，以及这些多线程实现方式的一些特点 
+多线程实现方式主要有：
+
+- 实现Thread的run()方法或者实现Runable接口
+- HandlerThread
+- AsyncTask
+- LoaderManager
+
+##### [2] Thread方式
+
+一般使用异步操作最常见的一种方式，我们可以继承Thread，并重写run(）方法，如下所示：
+
+```java
+Thread syncTask = new Thread() {
+    @Override
+    public void run() {
+        // 执行耗时操作
+    }
+};
+
+syncTask.start();12345678
+```
+
+还有另外一种启动线程的方式，即在创建Thread对象时，传入一个实现了Runable接口的对象，如下所示：
+
+```java
+Thread syncTask = new Thread(new Runnable() {
+    @Override
+    public void run() {
+        // 执行耗时操作
+    }
+});
+
+syncTask.start();12345678
+```
+
+Thread类中有几个方法的作用有些模糊，这里给出说明：
+
+- interrupt( )：
+
+  我们一般会使用该方法中断线程的执行，但该方法并不会中断线程，它的作用只是设置一个中断标志位，我们还得在run( )方法中判断这个标志位，并决定是否继续执行，通过这样的方式来达到中断的效果。 但该方法根据线程状态的不同，会有不同的结果。结果如下：
+
+  1. 当线程由于调用wait( )、join( )、sleep( )而阻塞时，中断标志位将会被清空，并接收到InterruptedException异常。
+  2. 当线程由于正在进行InterruptibleChannel类型的I/O操作而阻塞时，中断标志位将会置位，并接收到ClosedByInterruptException异常（I/O流也会自动关闭）
+  3. 当线程由于进行Selector操作而阻塞时，中断标志位将会置位，但不会接收到异常
+
+interrupted( )和isInterrupted( )的区别： 
+两个方法都是判断当前线程的中断标志位是否被置位，但调用interrupted( )方法后，中断标志位将会重置，而isInterrupted(）不会被重置。
+
+- join( )和sleep( )的区别：两个方法都会让线程暂停执行
+
+join(）方法是让出执行资源（如：CPU时间片），使得其它线程可以获得执行的资源。所以调用join()方法会使进入阻塞状态，该线程被唤醒后会进入runable状态，等待下一个时间片的到来才能再次执行。 
+sleep( )不会让出资源，只是处于睡眠状态（类似只执行空操作）。调用sleep()方法会使进入等待状态，当等待时间到后，如果还在时间片内，则直接进入运行状态，否则进入runable状态，等待下个时间片。
+
+##### [3] HandlerThread
+
+有些需求需要子线程不断的从一个消息队列中取出消息，并进行处理，处理完毕以后继续取出下一个处理。对于这个需求我们可以使用第一种方式，实现一个Thread对象，并创建一个消息队列，在Thread对象的run方法中不断的从消息队列中取出消息进行处理。多以该线程的这些特点有点像一个Looper线程，我们可复用Handler机制提供的消息队列MessageQueue，而无需自己重新创建。 
+HandlerThread的内部实现机制很简单，在创建新的线程后，使该线程成为一个Looper线程，让该线程不断的从MessageQueue取出消息并处理。我们看一下HandlerThread的实现：
+
+```java
+public class HandlerThread extends Thread {
+    int mPriority;
+    Looper mLooper;
+
+    /**
+    * Constructs a HandlerThread.
+    */
+    public HandlerThread(String name, int priority) {
+        super(name);
+        mPriority = priority;
+    }
+
+    @Override
+    public void run() {
+        // 要想让某个线程成为Looper线程，先调用Looper.prepare（）为该线程创建一个Looper对象，并初始化MessageQueue对象
+        Looper.prepare();
+        synchronized (this) {
+            mLooper = Looper.myLooper();
+            notifyAll();
+        }
+        Process.setThreadPriority(mPriority);
+        // 调用Looper.loop（），让该线程的Looper实例循环从MessageQueue中取出Message进行处理
+        Looper.loop();
+    }
+}
+```
+
+##### [4] Async(A森克)Task
+
+这是我们最经常使用的一种异步方式，在前面的两种多线程方式中，如果在子线程中进行了耗时的处理操作（如：网络请求、读写数据库等），当操作完毕后，我们需要更新UI上的显示状态，但在Android开发中我们是不能在子线程中更新UI界面的，所以还得在子线程中发送一个通知到主线程，让主线程去更新UI。这样的操作流程有些复杂，且都是重复性的工作。所以Android sdk中为我们抽象出AsyncTask这个类。
+
+```java
+public class CustomAsyncTask extends AsyncTask<String, Integer, String> {
+    @Override
+    protected void onPreExecute() {
+        // 在开始执行异步操作前回调，该方法在主线程中执行
+    }
+
+    @Override
+    protected String doInBackground(String... strings) {
+        // 在该方法中进行异步操作，参数strings是在启动异步任务时execute(...)传递进来的
+        // 该异步任务放回的结果类型为String
+        return null;
+    }
+
+    @Override
+    protected void onProgressUpdate(Integer... values) {
+        // 该方法用户通知用户doInBackground()方法的处理进度，在主线程中被回调，所以可在该方法中更新UI
+        // 参数values用于指示处理进度
+    }
+
+    @Override
+    protected void onPostExecute(String result) {
+        // 该方法是在异步操作doInBackground()处理完毕后回调，参数result是doInBackground()的处理结果
+        // 该方法在主线程中被回调，可直接更新UI
+    }
+
+    @Override
+    protected void onCancelled(String result) {
+        super.onCancelled(result);
+
+        // 当调用cancel(boolean), 则在doInBackground()完成后回调该方法
+        // 注意: 参数result可能为null，
+    }
+}
+```
+
+AsyncTask的内部使用了两个线程池，我们大概看一下AsyncTask的内部实现
+
+```java
+// 顺序执行任务的线程池，注意这个线程池是静态的，每个AsyncTask对象共用这个线程池
+public static final Executor SERIAL_EXECUTOR = new SerialExecutor();
+private static volatile Executor sDefaultExecutor = SERIAL_EXECUTOR;
+
+// 我们启动异步任务的三个方法，都是向SerialExecutor.execute（runable）传递一个runable对象
+public final AsyncTask<Params, Progress, Result> execute(Params... params) {
+    return executeOnExecutor(sDefaultExecutor, params);
+}
+
+public final AsyncTask<Params, Progress, Result> executeOnExecutor(Executor exec,
+        Params... params) {
+    ...
+    exec.execute(mFuture);
+    ...
+    return this;
+}
+
+public static void execute(Runnable runnable) {
+    sDefaultExecutor.execute(runnable);
+}
+
+```
+
+看一下SerialExecutor的实现
+
+```java
+private static class SerialExecutor implements Executor {
+    // 存储待执行的异步任务
+    final ArrayDeque<Runnable> mTasks = new ArrayDeque<Runnable>();
+    Runnable mActive;
+
+    public synchronized void execute(final Runnable r) {
+        // 其实并没有马上执行，而是添加到队列mTasks中, 进行一个排队
+        mTasks.offer(new Runnable() {
+            public void run() {
+                try {
+                    r.run();
+                } finally {
+                    // 一个任务执行完后，再执行下一个
+                    scheduleNext();
+                }
+            }
+        });
+
+        // 当前没有异步任务执行时，启动开始执行
+        if (mActive == null) {
+            scheduleNext();
+        }
+    }
+
+    protected synchronized void scheduleNext() {
+        if ((mActive = mTasks.poll()) != null) {
+            // 使用另外一个线程池分配线程，并执行任务
+            THREAD_POOL_EXECUTOR.execute(mActive);
+        }
+    }
+}
+
+```
+
+所以在使用AsyncTask执行异步操作时，会先在SerialExecutor进行一个顺序排队， 后再用ThreadPoolExcutor线程池为你分配一个线程并执行。而整个应用的AsyncTask任务都在排同一条队，有可能等待排队的任务很多，所以一般不会使用AsyncTask执行一些优先级比较高的异步任务。 
+当然我们是可以跳过不需要进行排队，直接就通过线程池分配一个线程并执行异步任务，但需要注意同时执行太多的异步任务，会影响用户体验，我想Google就是为了限制同时创建太多的线程才会采用一个排队机制的。
+
+```java
+/** @hide */
+public static void setDefaultExecutor(Executor exec) {
+    sDefaultExecutor = exec;
+}
+```
+
+该方法是隐藏，但可使用反射，设置一个线程池。
+
+##### [5] Loader&LoaderManager
+
+上面三种异步方式都可以用来加载一些耗时的数据，但有时我们加载数据的过程与Activity、Fragment的生命息息相关的。所以在使用上面说的那几种异步方式进行异步数据加载时，是需要去考虑Activity(Fragment)的生命周期是处于哪个阶段的。于是Android在Android 3.0以后引入了LoaderManager，主要用于执行一些耗时的异步数据加载操作，并根据Activity生命周期对异步处理进行调整，LoaderManager可以解决的问题包括：
+
+1. 加载的数据有变化时，会自动通知我们，而不自己监控数据的变化情况，如：用CursorLoader来加载数据库数据，当数据库数据有变化时，可是个展示变化的数据
+2. 数据的请求处理时机会结合Activity和Fragment的生命周期进行调整，如：若Acivity销毁了，那就不会再去请求新的数据
+
+使用该方法加载数据涉及到两个类重要的类，Loader和LoaderManager：
+
+Loader：该类用于数据的加载 ，类型参数D用于指定Loader加载的数据类型
+
+```java
+public class Loader<D> {
+}
+```
+
+一般我们不直接继承Loader，而是继承AsyncTaskLoader，因为Loader的加载工作并不是在异步线程中。而AsyncTaskLoader实现了异步线程，加载流程在子线程中执行。注意：对该类的调用应该在主线程中完成。
+
+LoaderManager: 
+LoaderManager用于管理与Activity和Fragment关联的Loader实例，LoaderManager负责根据的Activity的生命周期对Loader的数据加载器进行调度，所以这里分工明确，Loader负责数据加载逻辑，LoaderManager 
+负责Loader的调度，开发者只需要自定义自己的Loader，实现数据的加载逻辑，而不再关注数据加载时由于Activity销毁引发的问题。
+
+注意：其实AsyncTaskLoader内部实现异步的方式是使用AsyncTask完成的，上面我们说过AsyncTask的内部是有一个排队机制，但AsyncTaskLoader内部使用AsyncTask进行数据异步加载时，异步任务并不进行排队。而直接又线程池分配新线程来执行。
+
+##### [6] 总结
+
+我们来总结一下异步处理的方式，以及每种处理方式适合什么样的场景
+
+- 直接使用**Thread**实现方式，这种方式简单，但不是很优雅。适合数量很少（偶尔一两次）的异步任务，但要处理的异步任务很多的话，使用该方式会导致创建大量的线程，这会影响用户交互。
+- **HandlerThread**，这种方式适合子线程有序的执行异步操作，异步任务的执行一个接着一个。
+- **AsyncTask**， 通常用于耗时的异步处理，且时效性要求不是非常高的那种异步操作。如果时效性要求非常高的操作，不建议使用这个方式，**因为AsyncTask的默认实现是有内部排队机制，且是整个应用的AsyncTask的任务进行排队，所以不能保证异步任务能很快的被执行**。
+- **LoaderManager**，当请求处理时机需要根据Activity的生命周期进行调整，或需要时刻监测数据的变化，那LoaderManager是很不错的解决方案。
+
+#### 15.图片缓存原理
+
+> 移动开发本质上就是手机和服务器之间进行通信，需要从服务端获取数据。反复通过网络获取数据是比较耗时的，特别是访问比较多的时候，会极大影响了性能，Android中可通过缓存机制来减少频繁的网络操作，减少流量、提升性能。
+
+##### [1] 实现原理
+
+　　把不需要实时更新的数据缓存下来，通过时间或者其他因素　来判别是读缓存还是网络请求，这样可以缓解服务器压力，一定程度上提高应用响应速度，并且支持离线阅读。 　　
+
+##### [2] Bitmap的缓存
+
+　　在许多的情况下(像 ListView, GridView 或 ViewPager 之类的组件 )我们需要一次性加载大量的图片，在屏幕上显示的图片和所有待显示的图片有可能需要马上就在屏幕上无限制的进行滚动、切换。
+
+　　像ListView, GridView 这类组件，它们的子项当不可见时，所占用的内存会被回收以供正在前台显示子项使用。垃圾回收器也会释放你已经加载了的图片占用的内存。如果你想让你的UI运行流畅的话，就不应该每次显示时都去重新加载图片。保持一些内存和文件缓存就变得很有必要了。
+
+##### [3] 使用内存缓存
+
+　　通过预先消耗应用的一点内存来存储数据，便可快速的为应用中的组件提供数据，是一种典型的以**空间换时间**的策略。LruCache  类（Android v4 Support Library 类库中开始提供）非常适合来做图片缓存任务 ，它可以使用一个LinkedHashMap  的强引用来保存最近使用的对象，并且当它保存的对象占用的内存总和超出了为它设计的最大内存时会把**不经常使用(LRU)**的对象成员踢出以供垃圾回收器回收。
+
+> LruCache是Android中的一个缓存工具类，它采用了一种**最近最少使用**算法，可以将一些对象进行内存缓存，当缓存满后，会优先删除**近期最少使用**的对象。
+
+> **LruCache源码解析**：https://www.jianshu.com/p/8b17bf6fc2d5
+
+　　给LruCache 设置一个合适的内存大小，需考虑如下因素：
+
+- 还剩余多少内存给你的activity或应用使用
+- 屏幕上需要一次性显示多少张图片和多少图片在等待显示
+- 手机的大小和密度是多少（密度越高的设备需要越大的 缓存）
+- 图片的尺寸（决定了所占用的内存大小）
+- 图片的访问频率（频率高的在内存中一直保存）
+- 保存图片的质量（不同像素的在不同情况下显示）
+
+具体的要根据应用图片使用的具体情况来找到一个合适的解决办法，一个设置 LruCache 例子：
+
+```java
+private LruCache<String, Bitmap> mMemoryCache;
+
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    ...
+    // 获得虚拟机能提供的最大内存，超过这个大小会抛出OutOfMemory的异常
+    final int maxMemory = (int) (Runtime.getRuntime().maxMemory() / 1024);
+
+    // 用１／８的内存大小作为内存缓存
+    final int cacheSize = maxMemory / 8;
+
+    mMemoryCache = new LruCache<String, Bitmap>(cacheSize) {
+        @Override
+        protected int sizeOf(String key, Bitmap bitmap) {
+            // 这里返回的不是item的个数，是cache的size（单位1024个字节）
+            return bitmap.getByteCount() / 1024;
+        }
+    };
+    ...
+}
+
+public void addBitmapToMemoryCache(String key, Bitmap bitmap) {
+    if (getBitmapFromMemCache(key) == null) {
+        mMemoryCache.put(key, bitmap);
+    }
+}
+
+public Bitmap getBitmapFromMemCache(String key) {
+    return mMemoryCache.get(key);
+}
+```
+
+　　当为ImageView加载一张图片时，会先在LruCache 中看看有没有缓存这张图片，如果有的话直接更新到ImageView中，如果没有的话，一个后台线程会被触发来加载这张图片。
+
+```java
+public void loadBitmap(int resId, ImageView imageView) {
+    final String imageKey = String.valueOf(resId);
+
+    // 查看下内存缓存中是否缓存了这张图片
+    final Bitmap bitmap = getBitmapFromMemCache(imageKey);
+    if (bitmap != null) {
+        mImageView.setImageBitmap(bitmap);
+    } else {
+        mImageView.setImageResource(R.drawable.image_placeholder);
+BitmapWorkerTask task = new BitmapWorkerTask(mImageView);
+        task.execute(resId);
+    }
+}
+```
+
+在图片加载的Task中，需要把加载好的图片加入到内存缓存中。
+
+```java
+class BitmapWorkerTask extends AsyncTask<Integer, Void, Bitmap> {
+    ...
+    // 在后台完成
+    @Override
+    protected Bitmap doInBackground(Integer... params) {
+        final Bitmap bitmap = decodeSampledBitmapFromResource(
+                getResources(), params[0], 100, 100));
+    addBitmapToMemoryCache(String.valueOf(params[0]), bitmap);
+        return bitmap;
+    }
+    ...
+}
+```
+
+##### [4] 使用磁盘缓存
+
+　　内存缓存能够快速的获取到最近显示的图片，但不一定就能够获取到。当数据集过大时很容易把内存缓存填满（如GridView ）。你的应用也有可能被其它的任务（比如来电）中断进入到后台，后台应用有可能会被杀死，那么相应的内存缓存对象也会被销毁。 当你的应用重新回到前台显示时，你的应用又需要一张一张的去加载图片了。
+
+　磁盘文件缓存能够用来处理这些情况，保存处理好的图片，当内存缓存不可用的时候，直接读取在硬盘中保存好的图片，这样可以有效的减少图片加载的次数。读取磁盘文件要比直接从内存缓存中读取要慢一些，而且需要在一个UI主线程外的线程中进行，因为磁盘的读取速度是不能够保证的，磁盘文件缓存显然也是一种以**空间换时间**的策略。
+
+　　如果图片使用非常频繁的话，一个 ContentProvider 可能更适合代替去存储缓存图片，比如图片gallery 应用。
+
+　　下面是一个DiskLruCache的部分代码：
+
+```java
+private DiskLruCache mDiskLruCache;
+private final Object mDiskCacheLock = new Object();
+private boolean mDiskCacheStarting = true;
+private static final int DISK_CACHE_SIZE = 1024 * 1024 * 10; // 10MB
+private static final String DISK_CACHE_SUBDIR = "thumbnails";
+
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    ...
+    // 初始化内存缓存
+    ...
+    // 在后台线程中初始化磁盘缓存
+    File cacheDir = getDiskCacheDir(this, DISK_CACHE_SUBDIR);
+    new InitDiskCacheTask().execute(cacheDir);
+    ...
+}
+
+class InitDiskCacheTask extends AsyncTask<File, Void, Void> {
+    @Override
+    protected Void doInBackground(File... params) {
+        synchronized (mDiskCacheLock) {
+            File cacheDir = params[0];
+  mDiskLruCache = DiskLruCache.open(cacheDir, DISK_CACHE_SIZE);
+　 mDiskCacheStarting = false; // 结束初始化
+　 mDiskCacheLock.notifyAll(); // 唤醒等待线程
+        }
+        return null;
+    }
+}
+
+class BitmapWorkerTask extends AsyncTask<Integer, Void, Bitmap> {
+    ...
+    // 在后台解析图片
+    @Override
+    protected Bitmap doInBackground(Integer... params) {
+        final String imageKey = String.valueOf(params[0]);
+
+        // 在后台线程中检测磁盘缓存
+        Bitmap bitmap = getBitmapFromDiskCache(imageKey);
+
+        if (bitmap == null) { // 没有在磁盘缓存中找到图片
+ final Bitmap bitmap = decodeSampledBitmapFromResource(
+                    getResources(), params[0], 100, 100));
+        }
+
+        // 把这个final类型的bitmap加到缓存中
+        addBitmapToCache(imageKey, bitmap);
+
+        return bitmap;
+    }
+    ...
+}
+
+public void addBitmapToCache(String key, Bitmap bitmap) {
+    // 先加到内存缓存
+    if (getBitmapFromMemCache(key) == null) {
+        mMemoryCache.put(key, bitmap);
+    }
+
+    //再加到磁盘缓存
+    synchronized (mDiskCacheLock) {
+        if (mDiskLruCache != null && mDiskLruCache.get(key) == null) {
+            mDiskLruCache.put(key, bitmap);
+        }
+    }
+}
+
+public Bitmap getBitmapFromDiskCache(String key) {
+    synchronized (mDiskCacheLock) {
+        // 等待磁盘缓存从后台线程打开
+        while (mDiskCacheStarting) {
+            try {
+                mDiskCacheLock.wait();
+            } catch (InterruptedException e) {}
+        }
+        if (mDiskLruCache != null) {
+            return mDiskLruCache.get(key);
+        }
+    }
+    return null;
+}
+
+public static File getDiskCacheDir(Context context, String uniqueName) {
+    // 优先使用外缓存路径，如果没有挂载外存储，就使用内缓存路径
+final String cachePath =
+            Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState()) ||
+!isExternalStorageRemovable() ?getExternalCacheDir(context).getPath():context.getCacheDir().getPath();
+
+    return new File(cachePath + File.separator + uniqueName);
+}
+```
+
+　　不能在UI主线程中进行这项操作，因为初始化磁盘缓存也需要对磁盘进行操作。上面的程序片段中，一个锁对象确保了磁盘缓存没有初始化完成之前不能够对磁盘缓存进行访问。
+
+　　 内存缓存在UI线程中进行检测，磁盘缓存在UI主线程外的线程中进行检测，当图片处理完成之后，分别存储到内存缓存和磁盘缓存中。
+
+**设备配置参数改变时加载问题**
+
+　　由于应用在运行的时候设备配置参数可能会发生改变，比如设备朝向改变，会导致Android销毁你的Activity然后按照新的配置重启，这种情况下，我们要避免重新去加载处理所有的图片，让用户能有一个流畅的体验。
+
+　使用Fragment 能够把内存缓存对象传递到新的activity实例中，调用setRetainInstance(true)) 方法来保留Fragment实例。当activity重新创建好后， 被保留的Fragment依附于activity而存在，通过Fragment就可以获取到已经存在的内存缓存对象了，这样就可以快速的获取到图片，并设置到ImageView上，给用户一个流畅的体验。
+
+下面是一个示例程序片段：
+
+```java
+private LruCache<String, Bitmap> mMemoryCache;
+
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+    ...
+RetainFragment mRetainFragment =            RetainFragment.findOrCreateRetainFragment(getFragmentManager());
+    mMemoryCache = RetainFragment.mRetainedCache;
+    if (mMemoryCache == null) {
+        mMemoryCache = new LruCache<String, Bitmap>(cacheSize) {
+            ... //像上面例子中那样初始化缓存
+        }
+        mRetainFragment.mRetainedCache = mMemoryCache;
+    }
+    ...
+}
+
+class RetainFragment extends Fragment {
+    private static final String TAG = "RetainFragment";
+    public LruCache<String, Bitmap> mRetainedCache;
+
+    public RetainFragment() {}
+
+    public static RetainFragment findOrCreateRetainFragment(FragmentManager fm) {
+        RetainFragment fragment = (RetainFragment) fm.findFragmentByTag(TAG);
+        if (fragment == null) {
+            fragment = new RetainFragment();
+        }
+        return fragment;
+    }
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        // 使得Fragment在Activity销毁后还能够保留下来
+        setRetainInstance(true);
+    }
+}
+```
+
+　　可以在不适用Fragment（没有界面的服务类Fragment）的情况下旋转设备屏幕。在保留缓存的情况下，你应该能发现填充图片到Activity中几乎是瞬间从内存中取出而没有任何延迟的感觉。任何图片优先从内存缓存获取，没有的话再到硬盘缓存中找，如果都没有，那就以普通方式加载图片。 　　 参考：
+
+[Caching Bitmaps](http://developer.android.com/training/displaying-bitmaps/cache-bitmap.html)
+
+[LruCache](http://developer.android.com/reference/android/util/LruCache.html)
+
+##### [5] 使用SQLite进行缓存
+
+　　网络请求数据完成后，把文件的相关信息（如url（一般作为唯一标示），下载时间，过期时间）等存放到数据库。下次加载的时候根据url先从数据库中查询，如果查询到并且时间未过期，就根据路径读取本地文件，从而实现缓存的效果。
+
+　　注意：缓存的数据库是存放在/data/data//databases/目录下，是占用内存空间的，如果缓存累计，容易浪费内存，需要及时清理缓存。
+
+##### [6] 文件缓存
+
+　　思路和一般缓存一样，把需要的数据存储在文件中，下次加载时判断文件是否存在和过期（使用File.lastModified()方法得到文件的最后修改时间，与当前时间判断），存在并未过期就加载文件中的数据，否则请求服务器重新下载。
+
+　　注意，无网络环境下就默认读取文件缓存中的。
+
+##### [7] LruCache与DiskLruCache的使用
+
+在前面的Bitmap文章中提到，Bitmap在使用中非常容易出现OOM，而本节主要介绍2个方法对加载多图/大图的情况进行优化，有效的避免OOM。
+
+###### 7.1 LruCache缓存
+
+在使用RecyclerView、ListView等加载多图时，屏幕上显示的图片会通过滑动屏幕等事件不断地增加，最终导致OOM。为了保证内存始终维持在一个合理的范围，当item移除屏幕时要对图片进行回收，重新滚入屏幕时又要重新加载；Google官方推荐的是使用LruCache内存缓存技术，完美的解决了上面的问题。
+
+> 内存缓存技术对大量占用程序应用内存的对象提供快速访问的方法。主要算法：把最近使用的对象用强引用存储在LinkedHashMap中，把最近最少使用的对象在缓存值达到限定时进行移除。
+
+在使用LruCache缓存时应该考虑的因素：
+
+1. 设备最大为每个程序分配的内存
+2. 图片被访问的频率有多高，如存在个别访问频率高的图片可以考虑使用多个LruCache来区分对象组
+3. 图片的尺寸大小，每张图片占用的内存大小
+4. 设备的屏幕大小和分辨率
+5. 存储多个低像素的图片，而在后台去开线程加载高像素的图片会更加的有效
+
+**使用案例**：
+使用程序内存的1/8作为缓存，向ImageView加载一张图片时，先从LruCache缓存中获取，为空则开启线程去加载；否则直接填充。
+
+```java
+private LruCache<String, Bitmap> mMemoryCache;
+ 
+@Override
+protected void onCreate(Bundle savedInstanceState) {
+	// 获取到可用内存的最大值，使用内存超出这个值会引起OutOfMemory异常。
+	// LruCache通过构造函数传入缓存值，以KB为单位。
+	int maxMemory = (int) (Runtime.getRuntime().maxMemory() / 1024);
+	// 使用最大可用内存值的1/8作为缓存的大小。
+	int cacheSize = maxMemory / 8;
+	mMemoryCache = new LruCache<String, Bitmap>(cacheSize) {
+		@Override
+		protected int sizeOf(String key, Bitmap bitmap) {
+			return bitmap.getByteCount() / 1024;
+		}
+	};
+}
+ 
+ /*
+ 添加Bitmap到内存缓存中去
+*/
+public void addBitmapToMemoryCache(String key, Bitmap bitmap) {
+	if (getBitmapFromMemCache(key) == null) {
+		mMemoryCache.put(key, bitmap);
+	}
+}
+ 
+  /*
+ 内存缓存中获取对应key的Bitmap
+*/
+public Bitmap getBitmapFromMemCache(String key) {
+	return mMemoryCache.get(key);
+}
+
+// 从缓存中删除指定的Bitmap
+    public void removeBitmapFromMemory(String key) {
+        mMemoryCache.remove(key);
+    }
+
+public void loadBitmap(int resId, ImageView imageView) {
+	final String imageKey = String.valueOf(resId);
+	final Bitmap bitmap = getBitmapFromMemCache(imageKey);
+	if (bitmap != null) {
+		imageView.setImageBitmap(bitmap);
+	} else {
+		imageView.setImageResource(R.drawable.image_placeholder);
+		BitmapWorkerTask task = new BitmapWorkerTask(imageView);
+		task.execute(resId);
+	}
+}
+```
+
+加载的异步任务：
+
+```java
+class BitmapWorkerTask extends AsyncTask<Integer, Void, Bitmap> {
+	// 在后台加载图片。
+	@Override
+	protected Bitmap doInBackground(Integer... params) {
+		final Bitmap bitmap = decodeSampledBitmapFromResource(
+				getResources(), params[0], 100, 100);
+		addBitmapToMemoryCache(String.valueOf(params[0]), bitmap);
+		return bitmap;
+	}
+}
+```
+
+###### 7.2 DiskLruCache硬盘缓存
+
+第一部分中提到LruCache缓存技术实现了管理内存中图片的存储与释放，如果图片从内存中被移除的话，那么又需要从网络上重新加载一次图片，这显然非常耗时。因此，Google又提出了一个新的方法，使用DiskLruCache对图片进行硬盘缓存。
+
+现在我们大多数加载图片等用的都是第三方的框架如Glide等，会发现它们内部其实使用的也是DiskLruCache，它是如何使用的呢？
+
+先从缓存的位置来说，它可以自定义缓存的路径，默认的路径为`/sdcard/Android/data/<application package>/cache路径`；默认路径的好处：
+
+1. 存储在SD卡上，不会对内置存储造成影响
+2. 应用程序卸载后，相应的文件也会被删除
+
+以包名为com.wdl.card的APP为例，它的硬盘缓存的路径为：/sdcard/Android/data/com.wdl.card/cache
+
+**使用DiskLruCache的标志：一个名为journal的文件，它是DiskLruCache的一个日志文件**
+
+使用简介：工具类中包含获取APP版本号/获取缓存文件位置等功能
+
+```java
+package com.example.cachedemo;
+
+import android.content.Context;
+import android.content.pm.PackageManager;
+import android.os.Environment;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
+import java.security.MessageDigest;
+
+/**
+ * 项目名：  PhotoWallDemo
+ * 包名：    com.example.photowalldemo
+ * 创建者：   wdl
+ * 创建时间： 2019/2/18 14:39
+ * 描述：    TODO
+ */
+public class Util {
+    public static File getDiskCacheDir(Context context, String uniqueName) {
+        String cachePath;
+        if (Environment.MEDIA_MOUNTED.equals(Environment.getExternalStorageState())
+                || !Environment.isExternalStorageRemovable()) {
+            //SD卡存在且不可被移除时，调用getExternalCacheDir()获取缓存地址
+            //  cachePath = /sdcard/Android/data/<application package>/cache
+            cachePath = context.getExternalCacheDir().getPath();
+        } else {
+            // cachePath = /data/data/<application package>/cache
+            cachePath = context.getCacheDir().getPath();
+        }
+        return new File(cachePath + File.separator + uniqueName);
+    }
+
+    /**
+     * 网络下载并写入文件
+     *
+     * @param urlStr ip地址
+     * @param os     OutputStream输出流
+     * @return 是否写入成功
+     */
+    public static boolean downUrlToStream(final String urlStr, OutputStream os) {
+        HttpURLConnection urlConnection = null;
+        BufferedInputStream bis = null;
+        BufferedOutputStream bos = null;
+        try {
+            final URL url = new URL(urlStr);
+            urlConnection = (HttpURLConnection) url.openConnection();
+            bis = new BufferedInputStream(urlConnection.getInputStream(), 8 * 1024);
+            bos = new BufferedOutputStream(os, 8 * 1024);
+            int b;
+            while ((b = bis.read()) != -1) {
+                bos.write(b);
+            }
+            return true;
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        } finally {
+            if (urlConnection != null) {
+                urlConnection.disconnect();
+            }
+            try {
+                if (bos != null) {
+                    bos.close();
+                }
+                if (bis != null) {
+                    bis.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return false;
+    }
+
+
+    /**
+     * 获取加密key
+     *
+     * @param key 图片对应的url
+     * @return 加密后的url, 即为缓存文件的名称
+     */
+    public static String hashKeyForDisk(String key) {
+        String cacheKey;
+        try {
+            final MessageDigest messageDigest = MessageDigest.getInstance("MD5");
+            messageDigest.update(key.getBytes());
+            cacheKey = bytesToHexString(messageDigest.digest());
+        } catch (Exception e) {
+            return String.valueOf(key.hashCode());
+        }
+        return cacheKey;
+    }
+
+    private static String bytesToHexString(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < bytes.length; i++) {
+            String hex = Integer.toHexString(0xFF & bytes[i]);
+            if (hex.length() == 1) {
+                sb.append('0');
+            }
+            sb.append(hex);
+        }
+        return sb.toString();
+    }
+
+
+    /**
+     * 获取版本号
+     *
+     * @param context
+     * @return
+     */
+    public static int getVersionCode(Context context) {
+        int versionCode = 0;
+        try {
+            versionCode = context.getPackageManager().getPackageInfo(context.getPackageName(), 0).versionCode;
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }
+        return versionCode;
+    }
+
+}
+
+```
+
+**1.打开缓存 调用其open()方法**
+
+```java
+public static DiskLruCache open(File directory, int appVersion, int valueCount, long maxSize)
+1
+```
+
+各个参数的含义如下表：
+
+| 参数       | 含义                                                         |
+| ---------- | ------------------------------------------------------------ |
+| directory  | 数据的缓存地址–获取缓存地址(考虑SD卡不存在或者SD卡刚刚被移除) |
+| appVersion | app版本号                                                    |
+| valueCount | 一个Key对应的缓存文件数                                      |
+| maxSize    | 最多可以缓存多少字节的数据                                   |
+
+例子：省略抛出异常
+
+```java
+DiskLruCache mDiskLruCache = null;
+File cacheDir = getDiskCacheDir(context,'bitmap');
+if(!cacheDir.exists()){
+	cacheDir.mkdirs();
+}
+mDiskLruCache = DiskLruCache.open(cacheDir,getVersion(context),1,10*1024*1024);
+123456
+```
+
+获得DiskLruCache实例后，就可以对其进行缓存的读取/写入/删除了
+
+**2.写入**
+
+先获取editor的实例后进行操作。
+
+```
+public Editor edit(String key) throws IOException key：代表缓存文件的名称且必须和图片url一一对应（利用MD5进行加密实现）
+1
+ new Thread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    String url = "https://img-my.csdn.net/uploads/201309/01/1378037235_7476.jpg";
+                    //获取缓存文件名
+                    String key = Util.hashKeyForDisk(url);
+
+                    DiskLruCache.Editor editor = mDiskLruCache.edit(key);
+                    if (editor != null) {
+                        OutputStream os = editor.newOutputStream(0);
+                        if (Util.downUrlToStream(url, os)) {
+                            editor.commit();
+                        } else {
+                            editor.abort();
+                        }
+                    }
+                    mDiskLruCache.flush();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+        }).start();
+```
+
+获取实例后可调用它的newOutputStream(inte index)获取输出流，然后将其传入downloadUrlToStream中，即可实现下载并写入缓存目录
+index:由于前面在设置valueCount的时候指定的是1，所以这里index传0就可以了。
+
+写入后必须调用editor.commit()进行提交，调用abort()方法的话则表示放弃此次写入。
+
+**3.读取–借助DiskLruCache.get()方法**
+
+```
+public synchronized Snapshot get(String key) throws IOException key：缓存文件名  Snapshot为返回值
+1
+```
+
+利用 返回值的getInputStream(int index)获取输入流，最后进行显示
+
+**4.移除缓存–DiskLruCache.remove(String key)**
+
+```
+public synchronized boolean remove(String key) throws IOException
+1
+```
+
+**5.常用API**
+`size()`获取缓存文件的大小
+`flush()`将内存中的操作记录同步至日志文件（也就是journal文件）。。比较标准的做法就是在Activity的onPause()方法中去调用一次flush()方法就可以了。
+`close()`关闭，通常是在destroy中调用，关闭后不可进行操作
+`delete()`将缓存数据全部删除
+
+###### **7.3 journal解读**
+
+![在这里插入图片描述](https://img-blog.csdnimg.cn/20190226101849862.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzM0MzQxMzM4,size_16,color_FFFFFF,t_70)
+
+第一行 ： libcore.io.DiskLruCache固定字符，标志我们使用DiskLruCache技术
+第二行 ： DiskLruCache的版本号，恒为1
+第三行 ： open时传入的app版本号
+第四行 ： open时传入的每个key对应的缓存文件数
+第五行 ： 空行
+
+第六行 ： DIRTTY前缀，后跟缓存图片的key； 每次调用DiskLruCache.edit(String key时)都会产生一条
+后一行代表edit的结果，假如editor.commit()产生CLEAN key +该条缓存数据的大小，以字节为单位;缓存成功；假如editor.abort()产生REMOVE key,写入失败，删除；
+
+前面我们所学的size()方法可以获取到当前缓存路径下所有缓存数据的总字节数，其实它的工作原理就是把journal文件中所有CLEAN记录的字节数相加，求出的总合再把它返回而已。
+
+READ key 即调用DiskLruCache.get(String key)时产生的。
+
+DiskLruCache中使用了一个redundantOpCount变量来记录用户操作的次数，每执行一次写入、读取或移除缓存的操作，这个变量值都会加1，当变量值达到2000的时候就会触发重构journal的事件，这时会自动把journal中一些多余的、不必要的记录全部清除掉，保证journal文件的大小始终保持在一个合理的范围内。
+
+###### 7.4 DiskLruCache与LruCache结合实现照片墙
+
+案例：
+
+**RecyclerView的设配器类**：内部包含LruCache与DiskLruCache的使用；详见注释
+
+```
+package com.example.cachedemo;
+
+import android.content.Context;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.os.AsyncTask;
+import android.support.annotation.NonNull;
+import android.support.v7.widget.RecyclerView;
+import android.util.LruCache;
+import android.view.LayoutInflater;
+import android.view.View;
+import android.view.ViewGroup;
+import android.widget.FrameLayout;
+import android.widget.ImageView;
+
+import com.jakewharton.disklrucache.DiskLruCache;
+
+import java.io.File;
+import java.io.FileDescriptor;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
+
+/**
+ * 创建时间： 2019/2/20 9:16
+ * 描述：    TODO
+ */
+public class Adapter extends RecyclerView.Adapter<Adapter.ViewHolder> {
+
+    private List<String> mList;
+    private LruCache<String, Bitmap> lruCache;
+    private DiskLruCache mDiskLruCache;
+    private Set<Task> tasks;
+    private RecyclerView rv;
+    private Context context;
+    private boolean isScrolling = false;
+
+    /**
+     * 记录每个子项的高度。
+     */
+    private List<Integer> hList;//定义一个List来存放图片的height
+
+    public Adapter(List<String> mList, Context context, RecyclerView rv) {
+        this.mList = mList;
+        this.rv = rv;
+        this.context = context;
+        tasks = new HashSet<>();
+
+        hList = new ArrayList<>();
+        for (int i = 0; i < mList.size(); i++) {
+            //每次随机一个高度并添加到hList中
+            int height = new Random().nextInt(200) + 300;//[100,500)的随机数
+            hList.add(height);
+        }
+        //初始化内存缓存
+        int size = (int) ((Runtime.getRuntime().maxMemory() / 1024) / 8);
+        lruCache = new LruCache<String, Bitmap>(size) {
+            @Override
+            protected int sizeOf(String key, Bitmap value) {
+                return value.getByteCount() / 1024;
+            }
+        };
+
+        //初始化硬盘缓存
+        try {
+            File cacheDir = Util.getDiskCacheDir(context, "bitmap");
+            if (!cacheDir.exists())
+                cacheDir.mkdirs();
+            mDiskLruCache = DiskLruCache.open(cacheDir,
+                    Util.getVersionCode(context), 1, 30 * 1024 * 1024);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    /**
+     * 创建viewHolder,将xml传给viewholder
+     *
+     * @param parent
+     * @param viewType
+     * @return
+     */
+    @NonNull
+    @Override
+    public ViewHolder onCreateViewHolder(@NonNull ViewGroup parent, int viewType) {
+        View view = LayoutInflater.from(parent.getContext()).inflate(R.layout.recycler_view_item, parent, false);
+        return new ViewHolder(view);
+    }
+
+    @Override
+    public void onBindViewHolder(@NonNull ViewHolder viewHolder, int position) {
+        final String urlStr = mList.get(position);
+        //设置tag
+        viewHolder.imageView.setTag(urlStr);
+        //设置占位 防止图片错位
+        viewHolder.imageView.setImageResource(R.drawable.ic_launcher_background);
+        //设置宽高
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(context
+                .getResources().getDisplayMetrics().widthPixels / 3, hList.get(position));
+        viewHolder.imageView.setLayoutParams(params);
+
+            loadBitmaps(viewHolder.imageView, urlStr);
+    }
+
+    public void setScrolling(boolean scrolling) {
+        isScrolling = scrolling;
+        notifyDataSetChanged();
+    }
+
+    /**
+     * 加载图片
+     *
+     * @param imageView ImageView
+     * @param urlStr    先从内存缓存中找，找不到，从硬盘缓存中找，找不到，网络下载并加载（存储硬盘缓存），存储到内存缓存
+     */
+    private void loadBitmaps(ImageView imageView, String urlStr) {
+        Bitmap bitmap = getBitmapFromMemoryCache(urlStr);
+        //根据滑动的状态判断是否加载图片
+        if (bitmap == null&&!isScrolling) {
+            Task task = new Task();
+            tasks.add(task);
+            task.execute(urlStr);
+        } else {
+            if (imageView != null) {
+                imageView.setImageBitmap(bitmap);
+            }
+        }
+    }
+
+
+    @Override
+    public int getItemCount() {
+        return mList.size();
+    }
+
+
+    /**
+     * 添加内存缓存中不存在的Bitmap
+     *
+     * @param key    键
+     * @param bitmap 值
+     */
+    private void addBitmapToLruCache(String key, Bitmap bitmap) {
+        if (getBitmapFromMemoryCache(key) == null)
+            lruCache.put(key, bitmap);
+    }
+
+    /**
+     * 从内存缓存中获取键为key的Bitmap
+     *
+     * @param key 键
+     * @return Bitmap
+     */
+    private Bitmap getBitmapFromMemoryCache(String key) {
+        return lruCache.get(key);
+    }
+
+    /**
+     * 取消所有正在下载或等待下载的任务。
+     */
+    public void cancelAllTasks() {
+        if (tasks != null) {
+            for (Task task : tasks) {
+                task.cancel(false);
+            }
+        }
+    }
+
+
+    /**
+     * 将缓存记录同步到journal文件中。
+     */
+    public void flushCache() {
+        if (mDiskLruCache != null) {
+            try {
+                mDiskLruCache.flush();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+    }
+
+
+    class ViewHolder extends RecyclerView.ViewHolder {
+        ImageView imageView;
+
+        public ViewHolder(@NonNull View itemView) {
+            super(itemView);
+            imageView = itemView.findViewById(R.id.iv_image);
+        }
+    }
+
+
+    class Task extends AsyncTask<String, Void, Bitmap> {
+
+        private String imageUrl;
+
+        @Override
+        protected Bitmap doInBackground(String... strings) {
+            imageUrl = strings[0];
+            FileDescriptor fd = null;
+            FileInputStream fis = null;
+            DiskLruCache.Snapshot snapshot = null;
+            try {
+                //生成key
+                final String key = Util.hashKeyForDisk(imageUrl);
+                snapshot = mDiskLruCache.get(key);
+                //如果未找到缓存，则从网络上下载并存储至缓存中
+                if (snapshot == null) {
+                    DiskLruCache.Editor editor = mDiskLruCache.edit(key);
+                    if (editor != null) {
+                        OutputStream os = editor.newOutputStream(0);
+                        if (Util.downUrlToStream(imageUrl, os)) {
+                            editor.commit();
+                        } else {
+                            editor.abort();
+                        }
+                    }
+                    //缓存被写入后再次从缓存中查找
+                    snapshot = mDiskLruCache.get(key);
+                }
+                if (snapshot != null) {
+                    fis = (FileInputStream) snapshot.getInputStream(0);
+                    fd = fis.getFD();
+                }
+                //将缓存数据加载成Bitmap
+                Bitmap bitmap = null;
+                if (fd != null) {
+                    bitmap = BitmapFactory.decodeFileDescriptor(fd);
+                }
+                if (bitmap != null) {
+                    //将bitmap写入内存缓存中去
+                    addBitmapToLruCache(imageUrl, bitmap);
+                }
+                return bitmap;
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                try {
+                    if (fd == null && fis != null)
+                        fis.close();
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+            }
+            return null;
+        }
+
+        @Override
+        protected void onPostExecute(Bitmap bitmap) {
+            super.onPostExecute(bitmap);
+            ImageView imageView = rv.findViewWithTag(imageUrl);
+            if (bitmap != null && imageView != null) {
+                imageView.setImageBitmap(bitmap);
+            }
+            tasks.remove(this);
+
+        }
+    }
+}
+
+```
+
+**MainActivity**：使用
+
+```
+package com.example.cachedemo;
+
+import android.support.annotation.NonNull;
+import android.support.v7.app.AppCompatActivity;
+import android.os.Bundle;
+import android.support.v7.widget.RecyclerView;
+import android.support.v7.widget.StaggeredGridLayoutManager;
+import android.util.Log;
+import android.view.ViewTreeObserver;
+
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
+
+import java.lang.reflect.Type;
+import java.util.Arrays;
+import java.util.List;
+
+import static android.support.v7.widget.RecyclerView.SCROLL_STATE_DRAGGING;
+import static android.support.v7.widget.RecyclerView.SCROLL_STATE_IDLE;
+
+public class MainActivity extends AppCompatActivity {
+
+    private RecyclerView rv;
+    private Adapter adapter;
+    @Override
+    protected void onPause() {
+        super.onPause();
+        adapter.flushCache();
+    }
+
+    @Override
+    protected void onDestroy() {
+        super.onDestroy();
+        // 退出程序时结束所有的下载任务
+        adapter.cancelAllTasks();
+    }
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_main);
+        rv = findViewById(R.id.recycler_view);
+        //设置瀑布流，2列竖直
+        StaggeredGridLayoutManager layoutManager = new StaggeredGridLayoutManager(3,
+                StaggeredGridLayoutManager.VERTICAL);
+        //解决item跳动
+       // layoutManager.setGapStrategy(StaggeredGridLayoutManager.GAP_HANDLING_NONE);
+        rv.setLayoutManager(layoutManager);
+
+        rv.setItemAnimator(null);
+        adapter = new Adapter(Arrays.asList(Common.urls),this,rv);
+        rv.setAdapter(adapter);
+
+        //添加recycler view 滚动状态的监听，控制是否加载图片
+        rv.addOnScrollListener(new RecyclerView.OnScrollListener() {
+            @Override
+            public void onScrollStateChanged(@NonNull RecyclerView recyclerView, int newState) {
+                super.onScrollStateChanged(recyclerView, newState);
+                switch (newState){
+                    case SCROLL_STATE_IDLE:
+                        //滑动停止
+                        adapter.setScrolling(false);
+                        break;
+                    case SCROLL_STATE_DRAGGING:
+                        //正在滚动
+                        adapter.setScrolling(true);
+                        break;
+
+                }
+
+            }
+
+            @Override
+            public void onScrolled(@NonNull RecyclerView recyclerView, int dx, int dy) {
+                super.onScrolled(recyclerView, dx, dy);
+            }
+        });
+//        Gson gson = new Gson();
+//        List<Entity> mList = gson.fromJson(Common.s, new TypeToken<List<Entity>>() {
+//        }.getType());
+//        StringBuilder str = new StringBuilder();
+//        for (Entity entity : mList) {
+//            str.append("\"").append(entity.getUrl()).append("\",").append("\n");
+//        }
+//        Log.e("wdl",str.toString());
+
+//        Entity[] entities = gson.fromJson(Common.s,new TypeToken<Entity>() {
+//        }.getType());
+//        for (Entity entity : entities) {
+//            str.append(entity.getUrl()).append("\n");
+//        }
+//        Log.e("wdl",str.toString());
+    }
+}
+
+
+```
+
+效果展示：
+
+![在这里插入图片描述](https://img-blog.csdnimg.cn/20190226102756231.gif)
+
+**onScrollStateChanged()回调方法的主要功能。**
+**优化之一，在RecyclerView子项滚动时禁止加载图片，停止滑动时开始加载图片**
 
 ## 【Activity专题】
 
