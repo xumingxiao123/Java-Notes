@@ -5627,6 +5627,11 @@ private boolean isServiceRunning() {
 1. Started Service中使用startService（）方法来进行方法的调用，调用者和服务之间没有联系，即使调用者退出了，服务依然在进行 【onCreate()-  >onStartCommand()->startService()->onDestroy()】，注意其中没有 onStart()，主要是被onStartCommand()方法给取代了，onStart方法不推荐使用了。
 2. BindService中使用bindService()方法来绑定服务，调用者和绑定者绑在一起，调用者一旦退出服务也就终止了【onCreate()->onBind()->onUnbind()->onDestroy()】。
 
+>采用**Context.startService()**方法启动服务，在服务未被创建时，系统会先调用服务的onCreate()方法，接着调用onStart()方法。如果调用startService()方法前服务已经被创建，多次调用startService()方法并不会导致多次创建服务，但会导致多次调用onStart()方法。采用startService()方法启动的服务，只能调用Context.stopService()方法结束服务，服务结束时会调用onDestroy()方法。
+>
+>
+>采用**Context.bindService()**方法启动服务，在服务未被创建时，系统会先调用服务的 onCreate()方法，接着调用onBind()方法。这个时候调用者和服务绑定在一起，调用者退出了，系统就会先调用服务的onUnbind()方 法，接着调用onDestroy()方法。如果调用bindService()方法前服务已经被绑定，多次调用bindService()方法并不会导致 多次创建服务及绑定(也就是说onCreate()和onBind()方法并不会被多次调用)。如果调用者希望与正在绑定的服务解除绑定，可以调用 unbindService()方法，调用该方法也会导致系统调用服务的onUnbind()-->onDestroy()方法。 
+
 ##### [6] IntentService详细解析
 
 1. **IntentService定义**
