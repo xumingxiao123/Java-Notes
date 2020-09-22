@@ -6915,7 +6915,7 @@ https://www.jianshu.com/p/46774f2f51b1
 
 > **standard：默认模式**，可以不用写配置。在这个模式下，都会默认创建一个新的实例。
 >
-> **singleTop**：可以有多个实例，但是不允许多个相同Activity叠加。即，如果Activity在栈顶的时候，启动相同的Activity，不会创建新的实例，而会调用其onNewIntent方法。
+> **singleTop**：可以有多个实例，但是不允许多个相同Activity叠加。即，如果Activity在栈顶的时候，启动相同的Activity，不会创建新的实例，而会调用其**onNewIntent**方法。
 >
 > **singleTask**：只有一个实例。在同一个应用程序中启动他的时候，若Activity不存在，则会在当前task创建一个新的实例，若存在，则会把task中在其之上的其它Activity destory掉并调用它的**onNewIntent**方法。
 >
