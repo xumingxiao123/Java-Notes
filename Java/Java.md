@@ -1006,12 +1006,56 @@ public class Serialize
 （6）构造方法可以重载，以参数的个数，类型，或排列顺序区分。 
 其实英文翻译其实为构造器，根本就不是一个方法，所以没有返回值。
 
-#### 14  short i = 1 ； i=i+1；
+#### 24  short i = 1 ； i=i+1；
 
 short s1 = 1; s1 = s1 + 1; （s1+1运算结果是int型，需要强制转换类型）
 short s1 = 1; s1 += 1;（可以正确编译）
 
 对于short i =1;i = i+1;由于1是int类型，因此i+1运算结果也是int类型(**向上转型)**，需要强制转换类型才能赋值给short类型；而short i = 1；i+=1;可以正确编译，因为i+=1；相当于i=(short)(i+1);其中有隐含的强制类型转换。拓展：short i = 1;i++;也是正确的。需要注意的是，**整数都默认为int类型，除非你将其定义为short类型**，因此1+short类型的i还是int类型，所以会报错；而i++并没有经过i+1赋值语句，因此不会报错，而i+=1等价于i++，所以也不会报错。
+
+#### 25 从ArrayList中移除元素
+
+一. 概述
+
+在本教程中，我们将看到如何使用不同的技术从Java的ArrayList中删除元素。给定一个运动列表，让我们看看如何摆脱以下列表中的某些元素：
+
+![img](https://picb.zhimg.com/80/v2-eb131d26616169f28bb7dbf23cb1512a_720w.jpg)
+
+二. ArrayList的删除
+
+ArrayList有两种方法可以移除元素，一种是传递要移除的元素的索引，另一种是传递要移除的元素本身（如果存在）。我们将看到这两种用法。
+
+2.1按索引删除
+
+使用remove将索引作为参数传递，我们可以删除列表中指定位置的元素，并将任何后续元素向左移动，从其索引中减去一个元素。执行后，remove方法将返回已删除的元素：
+
+![img](https://picb.zhimg.com/80/v2-4f0b8621da00c78b2bad1e45f0096577_720w.png)
+
+2.2按元素删除
+
+另一种方法是使用此方法从列表中删除元素的第一个匹配项。形式上讲，如果存在的话，我们删除具有最低索引的元素，如果不是，列表不变。
+
+![img](https://pic3.zhimg.com/80/v2-1bc8c90693e0097d7d38d633360853bf_720w.jpg)
+
+三. 迭代删除
+
+有时我们希望在循环时从ArrayList中移除元素。由于没有生成ConcurrentModificationException，我们需要使用迭代器类来正确地执行它
+
+让我们看看如何在循环中除去元素：
+
+![img](https://pic2.zhimg.com/80/v2-d96a6787c9bb3e207cc485d6bb172f39_720w.jpg)
+
+四. 阵列列表ArrayList#删除（JDK 8+）
+
+如果我们使用JDK 8或更高版本，我们可以利用ArrayList#removeIf来删除满足给定谓词的ArrayList的所有元素。
+
+![img](https://picb.zhimg.com/80/v2-2222bf93ac436c5473625dd13c96aafd_720w.jpg)
+
+最后，我们可以使用第三方库（如Apache Commons）来完成这项工作，如果我们想深入研究，我们可以看到如何以有效的方式删除所有特定的事件。
+
+五。结论
+
+在本教程中，我们研究了从Java中的ArrayList中删除元素的各种方法。
 
 #### 【Java 内部类详解】
 
@@ -2671,7 +2715,7 @@ linkNodeLast(LinkedHashMap.Entry<K,V> p)
 2. 遍历链表或调用红黑树相关的删除方法
 3. 从 LinkedHashMap 维护的双链表中移除要删除的节点
 
-#### 9.[ArrayList 扩容原理](https://www.cnblogs.com/SunArmy/p/9844022.html)
+#### 9. [ArrayList 扩容原理](https://www.cnblogs.com/SunArmy/p/9844022.html)
 
 > https://blog.csdn.net/u010890358/article/details/80515284
 
