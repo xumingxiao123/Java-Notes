@@ -6520,4 +6520,689 @@ public void onReceive(Context context, Intent intent) {
     }  
 ```
 
-## 
+## 【安卓面试题总结专题】
+
+https://www.jianshu.com/p/46774f2f51b1
+
+#### 1.内存泄露总结
+
+> 当某些对象不再被程序所使用，但是这些对象仍然被某些对象所引用着，进而导致垃圾收集器不能及时释放它们。很多情况下是长生命周期引用着短生命周期的对象（而且对象比较大）不释放。
+>
+> **造成内存泄露的原因有：**
+>
+> 1.**静态集合类引起的内存泄露**
+>
+> 像HashMap、Vector等的使用最容易出现内存泄露，这些静态变量的生命周期和应用程序一致，他们所引用的所有的对象Object也不能被释放，因为他们也将一直被Vector等引用着。
+>
+> 2.当集合里面的对象属性被修改后，再调用remove()方法时不起作用。
+>
+> 3.释放对象的时候没有删除监听器
+>
+> 4.没有关闭连接，例如数据库连接（dataSourse.getConnection()），网络连接(socket)和io连接
+>
+> 5.**内部类和外部模块的引用**
+>
+> 6.**单例模式**，不正确使用单例模式是引起内存泄漏的一个常见问题，单例对象在初始化后将在JVM的整个生命周期中存在（以静态变量的方式），如果单例对象持有外部的引用，那么这个对象将不能被JVM正常回收，导致内存泄漏。
+>
+> 7.**Handler 造成的内存泄漏**（由于Handler是非静态内部类所以其持有当前Activity的隐式引用，如果Handler没有被释放，其所持有的外部引用也就是Activity也不可能被释放）
+
+#### 2.内存溢出（OOM）
+
+> 避免OOM有以下几种方向：
+>
+> **防止内存泄露**
+>
+> 避免OOM就是要剩余足够堆内存供应用使用，要想内存足够呢，首先就需要避免应用存在内存泄漏的情况，内存泄漏后，可使用的内存空间减少，自然就会更容易产生OOM。
+>
+> **减小对象的内存占用**
+>
+> 1.使用更加轻量的数据结构，例如，可以考虑使用ArrayMap/SparseArray而不是HashMap等传统数据结构
+>
+> 2.减小Bitmap对象的内存占用
+>
+> **内存对象的重复利用**
+>
+> 1.复用系统自带的资源
+>
+> 2.注意在ListView/GridView等出现大量重复子组件的视图里对ConvertView的复用
+>
+> 3.Bitmap对象的复用
+>
+> 4.代码中会需要使用到大量的字符串拼接的操作，这种时候有必要考虑使用StringBuilder来替代频繁的“+”
+
+#### 3..避免加载图片导致OOM
+
+> **1. 压缩图片**
+>
+> 在展示高分辨率图片的时候，最好先将图片进行压缩。压缩后的图片大小应该和用来展示它的控件大小相近，在一个很小的ImageView上显示一张超大的图片不会带来任何视觉上的好处，但却会占用我们相当多宝贵的内存，而且在性能上还可能会带来负面影响。
+>
+> **2. 使用图片缓存技术**
+>
+> 内存缓存技术对那些大量占用应用程序宝贵内存的图片提供了快速访问的方法。其中最核心的类是**LruCache** (此类在android-support-v4的包中提供) 。这个类非常适合用来缓存图片，它的主要算法原理是把最近使用的对象用强引用存储在 LinkedHashMap 中，并且把最近最少使用的对象在缓存值达到预设定值之前从内存中移除。
+>
+> **3. 及时回收bitmap内存**
+>
+> 虽然android系统有自己的gc机制，但是bitmap分为java和C两部分，这个bitmap对象是由java部分分配的，不用的时候系统就会自动回收了，但是那个对应的C可用的内存区域，虚拟机时不能直接回收的，这个只能调用底层的功能释放，所以需要调用recycle()方法来释放C部分内存。
+>
+> **4. 捕获异常**
+>
+> 因为bitmap是吃内存大户，为了避免应用在分配bitmap内存的时候出现OutOfMemory异常以后Crash掉，对异常进行捕获，如果发生了OOM后，应用不会崩溃，而是得到一个默认的bitmap图。
+
+#### 4.ANR异常总结：
+
+> **1、ANR错误一般有三种类型**
+>
+>    1.KeyDispatchTimeout(5 seconds) --主要是类型按键或触摸事件在特定时间内（5s）无响应
+>
+>    2.BroadcastTimeout(10 seconds) --BroadcastReceiver在特定时间内（10s）无法处理完成
+>
+>    3.ServiceTimeout(20 secends) --小概率事件 Service在特定的时间内无法处理完成
+>
+> **2、哪些操作会导致ANR 在主线程执行以下操作：**
+>
+>    1.高耗时的操作，如图像变换
+>
+>    2.磁盘读写，数据库读写操作
+>
+>    3.大量的创建新对象
+>
+> **3、如何避免**
+>
+>    1.UI线程尽量只做跟UI相关的工作
+>
+>    2.耗时的操作(比如数据库操作，I/O，连接网络或者别的有可能阻塞UI线程的操作)把它放在单独的线程处理
+>
+>    3.尽量用Handler来处理UIThread和别的Thread之间的交互
+
+#### 5.Binder机制
+
+> ​    **Binder是一种Android实现跨进程通信（IPC）的方式。**在一个进程空间中，分为用户空间和内核空间：进程间，用户空间的数据不可共享，内核空间的数据可以共享，为了保证安全性和独立性，一个进程不能直接访问另一个进程，而Binder就是充当连接两个进程（内核空间）的通道。Binder跨进程机制模型基于Client-Server模式。**Binder框架定义了四个角色：Server,Client,ServiceManager以及Binder驱动**：
+>
+> >**Client/Server结构bai(C/S结构)是大家熟知的客户机和服务器结构**。它是软件du系统体系结构，zhi通过它可以充分利用两端dao硬件环境的优势，将任务合理分配到Client端和Server端来实现，降低了系统的通讯开销。
+> >
+> >目前大多数应用软件系统都是Client/Server形式的两层结构，由于现在的软件应用系统正在向分布式的Web应用发展，Web和Client/Server 应用都可以进行同样的业务处理，应用不同的模块共享逻辑组件；
+> >
+> >因此，内部的和外部的用户都可以访问新的和现有的应用系统，通过现有应用系统中的逻辑可以扩展出新的应用系统。这也就是目前应用系统的发展方向。
+>
+>    **Server：**提供服务的进程
+>
+>    **Client：**使用服务的进程
+>
+>    **ServiceManager：**管理Service注册与查询
+>
+>    **Binder驱动：**一种虚拟设备驱动，是连接Server进程、Client进程和ServiceManager的桥梁，具  体作用为：1.传递进程间的数据2.实现线程控制
+>
+> ​    Binder驱动和Service Manager进程 属于 Android基础架构（即系统已经实现好了）；而Client 进程 和 Server 进程 属于Android应用层（需要开发者自己实现），所以，在进行跨进程通信时，开发者只需自定义Client & Server 进程 并 显式使用3个步骤（1.注册服务，获取服务，使用服务），最终借助 Android的基本架构功能就可完成进程间通信。
+>
+> **Binder的优点：**
+>
+> 对比 Linux （Android基于Linux）上的其他进程通信方式（管道/消息队列/共享内存/信号量/Socket），Binder 机制的优点有：
+>
+> **高效**
+>
+> 1.Binder数据拷贝只需要一次，而管道、消息队列、Socket都需要2次
+>
+> 2.通过驱动在内核空间拷贝数据，不需要额外的同步处理
+>
+> **安全性高**
+>
+> Binder 机制为每个进程分配了 UID/PID 来作为鉴别身份的标示，并且在 Binder 通信时会根据 UID/PID 进行有效性检测
+>
+> 1.传统的进程通信方式对于通信双方的身份并没有做出严格的验证
+>
+> 2.如，Socket通信 ip地址是客户端手动填入，容易出现伪造
+>
+> **使用简单**
+>
+> 1.采用Client/Server 架构
+>
+> 2.实现 面向对象 的调用方式，即在使用Binder时就和调用一个本地对象实例一样
+>
+> Binder请求的线程管理
+>
+> Server进程会创建很多线程来处理Binder请求，管理Binder模型的线程是采用Binder驱动的线程池，并由Binder驱动自身进行管理，而不是由Server进程来管理的。一个进程的Binder线程数默认最大是16，超过的请求会被阻塞等待空闲的Binder线程。所以，在进程间通信时处理并发问题时，如使用ContentProvider时，它的CRUD（创建、检索、更新和删除）方法只能同时有16个线程同时工作。
+
+#### 6.AIDL
+
+> ​    **AIDL（Android Interface Definition Language,AIDL）是Android的一种接口描述语言**;编译器可以通过aidl文件生成一段代码，通过预先定义的接口达到两个进程内部通信进程的目的（对于小白来说，AIDL的作用是让你可以在自己的APP里绑定一个其他APP的service，这样你的APP可以和其他APP交互）。
+>
+> **创建AIDL的步骤：**
+>
+> 1.创建一个aidl文件
+>
+> 2.在aidl文件中定义一个我们要提供的接口
+>
+> 3.新建一个service，在service里面建一个内部类，继承刚才创建的AIDL的stub类，并实现接口的方法，在onbind方法中返回内部类的实例。
+>
+> **使用AIDL的步骤：**
+>
+> 1.将aidl文件拷贝到src目录下，同时注意添加到的包名要求跟原来工程的包名严格一致
+>
+> 2.通过隐式意图绑定service
+>
+> 3.在onServiceConnected方法中通过Interface.stub.asinterface(service)获取Interface对象
+>
+> 4.通过interface对象调用方法
+>
+>    AIDL其实就是通过Binder实现的，因为在我们定义好aidl文件后，studio就帮我们生成了相关的Binder类。事实上我们在使用AIDL时候继承的Stub类，就是studio帮我们生成的Binder类。
+
+#### 7.Handler
+
+>   Handler是线程通信机制，Handler相关的有四个类：
+>
+>   **Message：**消息分为硬件产生的消息(如按钮、触摸)和软件生成的消息；
+>
+>   **MessageQueue：**消息队列的主要功能向消息池投递消息(MessageQueue.enqueueMessage)和取走消息池的消息(MessageQueue.next)；
+>
+>   **Handler：**消息辅助类，主要功能向消息池发送各种消息事件(Handler.sendMessage)和处理相应消息事件(Handler.handleMessage)；
+>
+>    **Looper：**不断循环执行(Looper.loop)，按分发机制将消息分发给目标处理者。
+>
+>   在主线程使用handler很简单，只需在主线程创建一个handler对象，重写handlerMessage()方法，在子线程通过在主线程创建的handler对象发送Message，在handleMessage（）方法中接受这个Message对象进行处理。通过handler很容易的从子线程切换回主线程了。当我们在子线程使用Handler的时候要手动调用Looper.prepare()创建一个Looper对象，之所以主线程不用，是系统启动的时候帮我们自动调用了Looper.prepare()方法。
+>
+>   **在同一线程中android.Handler和android.MessaegQueue的数量对应关系是怎样的？**
+>
+>   N(Handler)：1(MessageQueue)
+>
+>   在同一线程中肯定会调用一个 Loop.prepare() ，其中就生成一个 MessageQueue .而代码中可以 new 出多个 Handler 发送各自的 Message 到这个 MessageQueue 中，最后调用msg.target.dispatch 中这个target来捕获自己发送的massge，所以明显是 N 个 Handler 对应一个 MessageQueue。
+
+#### 8.Async(A森克)Task
+
+> AsyncTask是Android提供的一个助手类，它对Thread和Handler进行了封装，方便我们使用。在使用AsyncTask时，我们无需关注Thread和Handler，AsyncTask内部会对其进行管理。
+>
+> **AsyncTask有四个重要的回调方法，分别是：onPreExecute、doInBackground、onProgressUpdate和onPostExecute。**这四个方法会在AsyncTask的不同时期进行自动调用，我们只需要实现这几个方法的内部逻辑即可。
+>
+> **onPreExecute:**该方法是运行在主线程中的。在AsyncTask执行了execute（）方法后就会在UI线程上执行该方法，
+>
+> 该方法在task正真执行前运行，我们通常可以在该方法中显示一个进度条，从而告知用户后台任务即将开始。
+>
+> **doInBackground：**该方法是运行在单独的工作线程中的，。该方法会在onPreExecute()方法执行完成后立即执行，
+>
+> 该方法用于在工作线程中执行耗时操作，我们在该方法中编写我们需要在后台线程中运行的逻辑代码。
+>
+> **onProgressUpdate：**该方法是在主线程中被调用，当我们在doInBackground中调用publishProgress（）方法后，就会在UI线程上回调该方法。
+>
+> **onPostExecute：**该方法是在主线程中被调用。当doInBackground方法执行完毕后，就表示任务完成了，doInBackground方法的返回值
+>
+> 就会作为参数在主线程中传入到onPostExecute方法中，这样就可以在主线程中根据任务的执行结果更新UI。
+
+#### 9.IntentService
+
+> ​    IntentService是继承并处理异步请求的一个类，在IntentService内有一个工作线程来处理耗时操作，启动IntentService的方式和启动传统的Service一样，同时，当任务执行完后，IntentService会自动停止，而不需要我们手动去控制或stopSelf()。
+>
+> ​    我们使用IntentService最起码有两个好处：一方面不需要自己去new Thread了；另一方面不需要考虑在什么时候关闭该Service。
+
+#### 10.Android dvm的进程和Linux的进程, 应用程序的进程是否为同一个概念 
+
+> DVM指dalivk的虚拟机。每一个Android应用程序都在它自己的进程中运行，都拥有一个独立的Dalvik虚拟机实例。而每一个DVM都是在Linux 中的一个进程，所以说可以认为是同一个概念。
+
+#### 11.Android的几种进程
+
+> **1.前台进程：**即与用户正在交互的Activity或者Activity用到的Service等，如果系统内存不足时前台进程是最后被杀死的
+>
+> **2.可见进程：**可以是处于暂停状态(onPause)的Activity或者绑定在其上的Service，即被用户可见，但由于失去了焦点而不能与用户交互
+>
+> **3.服务进程：**其中运行着使用startService方法启动的Service，虽然不被用户可见，但是却是用户关心的，例如用户正在非音乐界面听的音乐或者正在非下载页面自己下载的文件等；当系统要空间运行前两者进程时才会被终止
+>
+> **4.后台进程：**其中运行着执行onStop方法而停止的程序，但是却不是用户当前关心的，例如后台挂着的QQ，这样的进程系统一旦没了有内存就首先被杀死
+>
+> **5.空进程：**不包含任何应用程序的程序组件的进程，这样的进程系统是一般不会让他存在的
+>
+> **如何避免后台进程被杀死：**
+>
+> 1.调用startForegound，让你的Service所在的线程成为前台进程
+>
+> 2.Service的onStartCommond返回START_STICKY或START_REDELIVER_INTENT
+>
+> 3.Service的onDestroy里面重新启动自己
+
+#### 12.为什么使用服务而不是线程  
+
+>    进程中运行着线程，Android应用程序刚启动都会开启一个进程给这个程序来使用。Android一个应用程序把所有的界面关闭时, 进程这时还没有被销毁,现在处于的是空进程状态,Thread运行在空进程中, 很容易的被销毁了。服务不容易被销毁, 如果非法状态下被销毁了, 系统会在内存够用时,重新启动。
+>
+>   Android系统会尽量保持拥有service的进程运行，只要在该service已经被启动(start)或者客户端连接(bindService)到它。当内存不足时，还会保持，拥有service的进程具有较高的优先级。
+
+#### 13.线程安全问题
+
+>    当多个线程同时访问临界资源（一个对象，对象中的属性，一个文件，一个数据库等）时，就可能会产生线程安全问题。基本上所有的并发模式在解决线程安全问题上，都采用“序列化访问临界资源”的方案，即在同一时刻，只能有一个线程访问临界资源，也称同步互斥访问。通常来说，是在访问临界资源的代码前面加上一个锁，当访问完临界资源后释放锁，让其他线程继续访问。
+>
+>    在Java中，提供了两种方式来实现同步互斥访问：synchronized和Lock。
+>
+>    所谓死锁，就是两个线程都在等待对方先完成，造成程序的停滞，一般程序的死锁都是在程序运行时出现的。
+
+#### 14.线程的状态变化
+
+>  要想实现多线程，必须在主线程中创建新的线程对象。任何线程一般具有5种状态，即创建，就绪，运行，阻塞，终止。下面分别介绍一下这几种状态：
+>
+> **创建状态**
+>
+> 在程序中用构造方法创建了一个线程对象后，新的线程对象便处于新建状态，此时它已经有了相应的内存空间和其他资源，但还处于不可运行状态。新建一个线程对象可采用Thread 类的构造方法来实现，例如 “Thread thread=new Thread()”。
+>
+> **就绪状态**
+>
+> 新建线程对象后，调用该线程的 start() 方法就可以启动线程。当线程启动时，线程进入就绪状态。此时，线程将进入线程队列排队，等待 CPU 服务，这表明它已经具备了运行条件。
+>
+> **运行状态**
+>
+> 当就绪状态被调用并获得处理器资源时，线程就进入了运行状态。此时，自动调用该线程对象的 run() 方法。run() 方法定义该线程的操作和功能。
+>
+> **阻塞状态**
+>
+> 一个正在执行的线程在某些特殊情况下，如被人为挂起或需要执行耗时的输入/输出操作，会让 CPU 暂时中止自己的执行，进入阻塞状态。在可执行状态下，如果调用sleep(),suspend(),wait() 等方法，线程都将进入阻塞状态，发生阻塞时线程不能进入排队队列，只有当引起阻塞的原因被消除后，线程才可以转入就绪状态。
+>
+> **死亡状态**
+>
+> 线程调用 stop() 方法时或 run() 方法执行结束后，即处于死亡状态。处于死亡状态的线程不具有继续运行的能力。
+
+#### 15.Android架构
+
+
+
+![img](https:////upload-images.jianshu.io/upload_images/9087029-c0662f8aa3987a04.png?imageMogr2/auto-orient/strip|imageView2/2/w/465/format/webp)
+
+> **1.Linux内核(Linux Kernel)**底层Linux核心的工作,安全管理、内存管理、进程管理、电源管理、硬件驱动
+>
+> **2.核心类库(Libraries)**
+>
+> 核心类库中包含了系统库及Android运行环境。系统库这一层主要是通过C/C++库来为Android系统提供主要的特性支持。
+>
+> Libraries：c代码库
+>
+>   OpenGL：图形快速显示，游戏开发
+>
+>    webkit：浏览器内核
+>
+>    Android Runtime
+>
+>   Dalvik VM：虚拟机，android代码运行在此虚拟机
+>
+>   运行时调用Libraries C代码库
+>
+> **3.应用程序层(Application Framework)**
+>
+> Application Framework中间层，java代码，调用底层c代码
+>
+> **4.应用层**
+>
+> Applications原生的应用程序：浏览器、桌面、联系人等
+>
+> **相比以前的架构，多了一个HAL（硬件抽象层）**
+
+#### 16.Android四大布局
+
+> ​    Android常见的四大布局为线性布局（LinearLayout）、相对布局（Relativelayout）、帧布局（FrameLayout）、表格布局（TableLayout）。有的地方介绍是五大布局，因为还有一种是绝对布局（AbsoluteLayout）就是通过坐标的宽高来控制控件的位置，此布局方式已经被弃用。
+>
+>  **FrameLayout(帧布局)：**
+>
+> 显示特点：所有的子控件默认显示在FrameLayout的左上角，会重叠在一起显示。
+>
+> **LinearLayout(线性布局)：**
+>
+> 显示特点：每一个LinearLayout里面又可分为垂直布局（android:orientation="vertical"）和水平布局（android:orientation="horizontal" ）android:orientation="horizontal"(横向)。
+>
+> **RelativeLayout(相对布局):**
+>
+> 显示特点：和LinearLayout布局相似，所有子控件默认显示在RelativeLayout的左上角，主要属性有：相对于某一个元素android:layout_below android:layout_toLeftOf相对于父元素的地方android:layout_alignParentLeft、android:layout_alignParentRigh
+>
+> **TableLayout(表格布局):**
+>
+> 在表格布局中，整个页面就相当于一张大的表格，控件就放在每个Cell中
+
+#### 17.四大存储方式
+
+> 在Android系统中我们常用的数据存储方式有4种。1、**存储手机内存中（ROM）**2、**存储在SD卡中**3、**存储在SharedPreferences中**4、**存储在SQLite数据库中**（ContentProvider存储数据属于程序间数据库共享）
+>
+> 所有的文件都是默认存储到/data/data//files目录下的
+>
+> sharedpreferences文件都是存放在/data/data//shared_prefs/目录下的
+>
+> 获得sharedpreferences的3种方法：1.context类中的getsharedpreferences（）方法2.Activity类中的getpreferences（）方法，使用这个方法时自动将当前活动的类名作为sharedpreferences的文件名3.PreferenceManager类中的getDefaultSharedPreferences（）方法，自动使用当前应用程序的包名作为前缀来命名sharedpreferences文件。
+>
+>  **如何将SQLite数据库(dictionary.db文件)与apk文件一起发布**
+>
+> 可以将dictionary.db文件复制到Eclipse Android工程中的res aw目录中。所有在res aw目录中的文件不会被压缩，这样可以直接提取该目录中的文件。可以将dictionary.db文件复制到res aw目录中
+>
+>  **如何将打开res aw目录中的数据库文件?**
+>
+> 在Android中不能直接打开res aw目录中的数据库文件，而需要在程序第一次启动时将该文件复制到手机内存或SD卡的某个目录中，然后再打开该数据库文件。
+>
+> 复制的基本方法是使用getResources().openRawResource方法获得res aw目录中资源的 InputStream对象，然后将该InputStream对象中的数据写入其他的目录中相应文件中。在Android SDK中可以使用SQLiteDatabase.openOrCreateDatabase方法来打开任意目录中的SQLite数据库文件。
+
+#### 18.Activity三种状态七个生命周期
+
+> 1、当它在屏幕前台时,响应用户操作的Activity, 它是激活或运行状态
+>
+> 2、当它上面有另外一个Activity，使它失去了焦点但仍然对用户可见时,它处于暂停状态。
+>
+> 3、当它完全被另一个Activity覆盖时则处于停止状态。
+>
+> void onCreate() 设置布局以及进行初始化操作
+>
+> void onStart() 可见, 但不可交互
+>
+> void onRestart() 调用onStart()
+>
+> void onResume() 可见, 可交互
+>
+> void onPause() 部分可见, 不可交互
+>
+> void onStop() 完全不可见
+>
+> void onDestroy() 销毁
+
+#### 19. Activity在屏幕旋转时的生命周期
+
+> ​    不设置Activity的android:configChanges时，切屏会重新调用各个生命周期，切横屏时会执行一次，切竖屏时会执行两次；设置Activity的android:configChanges="orientation"时，切屏还是会重新调用各个生命周期，切横、竖屏时只会执行一次；设置Activity的android:configChanges="orientation|keyboardHidden"时，切屏不会重新调用各个生命周期，只会执行onConfigurationChanged方法。
+
+#### 20.任务栈
+
+> (1)程序打开时就创建了一个任务栈,用于存储当前程序的activity,所有的activity属于一个任务栈。
+>
+> (2)一个任务栈包含了一个activity的集合,去有序的选择哪一个activity和用户进行交互:只有在任务栈栈顶的activity才可以跟用户进行交互。
+>
+> (3)任务栈可以移动到后台, 并且保留了每一个activity的状态.并且有序的给用户列出它们的任务, 而且还不丢失它们状态信息。
+>
+> (4)退出应用程序时：当把所有的任务栈中所有的activity清除出栈时,任务栈会被销毁,程序退出。
+>
+> 任务栈的缺点：
+>
+> (1)每开启一次页面都会在任务栈中添加一个Activity,而只有任务栈中的Activity全部清除出栈时，任务栈被销毁，程序才会退出,这样就造成了用，户体验差, 需要点击多次返回才可以把程序退出了。
+>
+> (2)每开启一次页面都会在任务栈中添加一个Activity还会造成数据冗余,重复数据太多, 会导致内存溢出的问题(OOM)。
+>
+> 为了解决任务栈产生的问题，Android为Activity设计了启动模式。
+
+#### 21.Activity的四种启动模式
+
+> **standard：默认模式**，可以不用写配置。在这个模式下，都会默认创建一个新的实例。
+>
+> **singleTop**：可以有多个实例，但是不允许多个相同Activity叠加。即，如果Activity在栈顶的时候，启动相同的Activity，不会创建新的实例，而会调用其onNewIntent方法。
+>
+> **singleTask**：只有一个实例。在同一个应用程序中启动他的时候，若Activity不存在，则会在当前task创建一个新的实例，若存在，则会把task中在其之上的其它Activity destory掉并调用它的onNewIntent方法。
+>
+> **singleInstance**：只有一个实例，并且这个实例独立运行在一个task中，这个task只有这个实例，不允许有别的Activity存在。
+>
+> 如何决定所属task
+>
+> ​    “standard”和”singleTop”的activity的目标task，和收到的Intent的发送者在同一个task内，除非intent包括参数FLAG_ACTIVITY_NEW_TASK。 如果提供了FLAG_ACTIVITY_NEW_TASK参数，会启动到别的task里。
+>
+> ​    “singleTask”和”singleInstance”总是把activity作为一个task的根元素，他们不会被启动到一个其他task里。
+
+#### 22..Activity之间的跳转方式
+
+>  **显式跳转：**在可以引用到那个类,并且可以引用到那个类的字节码时可以使用。一般用于自己程序的内部。显式跳转不可以跳转到其他程序的页面中。
+>
+> **隐式跳转：**可以在当前程序跳转到另一个程序的页面。隐式跳转不需要引用到那个类,但是必须得知道那个界面的动作(action)和信息(category)。
+>
+> **隐式意图注意点:**
+>
+> 1.在清单文件中定义时需要定义才能被隐式意图启动
+>
+> 2.中至少配置一个和一个，否则无法被启动,如果category为默认，使用intent时可以不用设置category（当不设置category时，自动添加一个默认的category）
+>
+> 3.Intent对象中设置的action、category、data在必须全部包含才能启动
+>
+> 4.中的、、都可以配置多个，Intent对象中不用全部匹配，每样匹配一个即可启动
+>
+> 5.如果一个意图可以匹配多个Activity，Android系统会提示选择
+>
+> 6.data中还可以设置type属性，那么激活时，也就必须setType()
+
+#### 23.Activity数据传递的三种情况
+
+> **1.向下一个活动传递数据**
+>
+> **2.向上一个活动传递数据**
+>
+> ①首先如果我们想从下一个活动中获取返回的数据的话，我们需要用startActivityForResult()来开启活动
+>
+> ②在新的Activity中添加返回数据的逻辑
+>
+> ③由于我们是使用startActivityForResult()方法来开启第二个活动的，所以在第二个活动销毁之后会调用上一个活动的onActivityResult()方法，因此需要我们在第一个活动中重写这个方法来得到返回的数据。
+>
+> **3.活动被回收，被重新创建了，需要接收上次被回收时的数据**
+>
+> Activity中还提供了一个onSaveInstanceState()回调方法，这个方法可以保证在活动被回收之前一定会调用，因此我们可以通过这个方法来解决活动被回收时数据得不到保存的问题。
+>
+> ①重写onSaveInstanceState()保存数据
+>
+> ②再次开启时从onSaveInstanceState中得到数据
+
+#### 24.如何将一个Activity设置成窗口的样式。
+
+> 中配置：android :theme="@android:style/Theme.Dialog"
+>
+> 另外android:theme="@android:style/Theme.Translucent" 是设置透明
+
+#### 25.如何退出Activity？如何安全退出已调用多个Activity的Application？
+
+> 对于单一Activity的应用来说，退出很简单，直接finish()即可。当然，也可以用killProcess()和System.exit()这样的方法。
+>
+> 对于多个activity：
+>
+> 1.抛异常强制退出
+>
+> 2.每打开一个Activity，就加到ArrayList中记录下来，在需要退出时，循环ArrayList关闭每一个Activity即可。
+>
+> 3.发送特定广播
+>
+> 4.递归退出，在打开新的Activity时使用startActivityForResult，然后自己加标志，在onActivityResult中处理，递归关闭。
+
+#### 26.自定义View
+
+>  View的绘制有三个过程，measure，layout，draw。自定义View我们大部分只需要重写onMeasure(),onDraw()方法，当然了还得至少重写两个View的构造函数。
+>
+> Measure()中我们注意的主要有两个类 ViewGroup.LayoutParams （View 自身的布局参数），
+>
+>    MeasureSpecs 类（父视图对子视图的测量要求），MeasureSpecs为32位int值，高两位为mode（测量模式），低30位为size（具体测量大小）。
+>
+> 测量模式有三种：
+>
+> EXACTLY：当前的尺寸就是当前View应该取的尺寸
+>
+> AT_MOST：当前尺寸是当前View能取的最大尺寸
+>
+> UNSPECIFIED：父容器没有对当前View有任何限制，当前View可以任意取尺寸
+>
+> 而测量模式跟我们的布局时的wrap_content、match_parent以及写成固定的尺寸有什么对应关系呢？
+>
+> match_parent—>EXACTLY。怎么理解呢？match_parent就是要利用父View给我们提供的所有剩余空间，而父View剩余空间是确定的，也就是这个测量模式的整数里面存放的尺寸。
+>
+> wrap_content—>AT_MOST。怎么理解：就是我们想要将大小设置为包裹我们的view内容，那么尺寸大小就是父View给我们作为参考的尺寸，只要不超过这个尺寸就可以啦，具体尺寸就根据我们的需求去设定。
+>
+> 固定尺寸（如100dp）—>EXACTLY。用户自己指定了尺寸大小，我们就不用再去干涉了，当然是以指定的大小为主啦。
+>
+> draw()：根据Canvas（画布）自动渲染View（包括其所有子View）
+>
+>   绘制内容是根据画布的规定绘制在屏幕上的，画布只是规定了绘制内容时的规则；内容的位置由坐标决定，而坐标是相对于画布而言的。
+
+#### 27.Android事件分发机制
+
+
+
+![img](https:////upload-images.jianshu.io/upload_images/9087029-20aa80481829ed14.png?imageMogr2/auto-orient/strip|imageView2/2/w/625/format/webp)
+
+> 当一个事件点击后，系统需要将这个事件传递给一个具体的View去处理，这个事件的传递过程就是分发过程。
+>
+>  一个事件产生后，传递顺序是：Activity（Window） -> ViewGroup -> View
+>
+>  **事件分发由三个方法协作完成：**
+>
+>    dispatchTouchEvent() :分发传递点击事件
+>
+>    onInterceptTouchEvent():判断是否拦截了某个事件(只存在于ViewGroup,普通的View是没有这个 方法)
+>
+>    onTouchEvent():处理点击事件
+>
+> **事件分发流程:**
+>
+> onTouch(）和onClick()的优先级
+>
+> onTouch()的执行高于onClick()，每当控件被点击时:
+>
+> 如果在回调onTouch()里返回false,就会让dispatchTouchEvent方法返回false,那么就会执行onTouchEvent();如果回调了setOnClickListener()来给控件注册点击事件的话，最后会在performClick()方法里回调onClick()。
+>
+> 如果在onTouch()里返回true，就会让dispatchTouchEvent()方法放回true，那么将不会执行onTouchEvent（），既onClick()也不会执行。
+
+#### 28.ListView的四种优化方式
+
+> **1.convertView的复用**
+>
+>   这也是最简单的一种优化方式，就是在Adapter类的getView方法中通过判断convertView是否为null，是的话就需要在创建一个视图出来，然后给视图设置数据，最后将这个视图返回给底层，呈现给用户；如果不为null的话，其他新的view可以通过复用的方式使用已经消失的条目view，重新设置上数据然后展现出来。
+>
+> **2.ViewHolder的使用**
+>
+>   第一种优化方式有个缺点，就是每次在findviewById，重新找到控件，然后对控件进行赋值，这样会减慢加载的速度，其实我们可以创建一个内部类ViewHolder，里面的成员变量和view中所包含的组件个数、类型相同，在convertview为null的时候，把findviewbyId找到的控件赋给ViewHolder中对应的变量，就相当于先把它们装进一个容器，下次要用的时候，直接从容器中获取，这样是不是比findviewbyId效率要高一点。
+>
+> **3.使用分段加载**
+>
+>    有些情况下我们需要加载网络中的数据，显示到ListView，而往往此时都是数据量比较多的一种情况，如果数据有1000条，没有优化过的ListView都是会一次性把数据全部加载出来的，很显然需要一段时间才能加载出来，我们不可能让用户面对着空白的屏幕等好几分钟，那么这时我们可以使用分段加载，比如先设置每次加载数据10条，当用户滑动ListView到底部的时候，我们再加载20条数据出来，然后使用Adapter刷新ListView，这样用户只需要等待10条数据的加载时间，这样也可以缓解一次性加载大量数据而导致OOM崩溃的情况。
+>
+> **4.使用分页加载**
+>
+>   上面第三种方式其实也不能完全解决OOM崩溃的情况，因为虽然我们在分段中一次只增加10条数据到List集合中，然后再刷新到ListView中去，假如有10万条数据，如果我们顺利读到最后这个List集合中还是会累积海量条数的数据，还是可能会造成OOM崩溃的情况，这时候我们就需要用到分页，比如说我们将这10万条数据分为1000页，每一页100条数据，每一页加载时都覆盖掉上一页中List集合中的内容，然后每一页内再使用分批加载，这样用户的体验就会相对好一些。
+
+#### 29.动画分类
+
+> 动画分类：
+>
+> View动画包括：平移、旋转、缩放、透明度，View动画是一种渐近式动画
+>
+> 帧动画：图片切换动画
+>
+> 属性动画：通过动态改变对象的属性达到动画效果
+>
+> 帧动画：
+>
+> View动画，继承自Animation，四个动画效果实现类：
+>
+> AlphaAnimation透明度渐变；
+>
+> ScaleAnimation尺寸渐变；
+>
+> TranslateAnimation坐标变化；
+>
+> RotateAnimation旋转变换
+
+#### 30.Fragment的生命周期是怎么样的，跟Activity有什么关系？
+
+Fragment必须是依存于Activity而存在的，因此Activity的生命周期会直接影响到Fragment的生命周期。
+
+
+
+![img](https:////upload-images.jianshu.io/upload_images/9087029-05950c216ada18ac.png?imageMogr2/auto-orient/strip|imageView2/2/w/281/format/webp)
+
+#### 31..Service
+
+> Service是一个专门在后台处理长时间任务的Android组件，它没有UI。它有两种启动方式，startService和bindService。
+>
+> 这两种启动方式的区别？
+>
+> startService只是启动Service，启动它的组件（如Activity）和Service并没有关联，只有当Service调用stopSelf或者其他组件调用stopService服务才会终止。
+>
+> bindService方法启动Service，其他组件可以通过回调获取Service的代理对象和Service交互，而这两方也进行了绑定，当启动方销毁时，Service也会自动进行unBind操作，当发现所有绑定都进行了unBind时才会销毁Service。
+>
+> Service的onCreate回调函数可以做耗时的操作吗？
+>
+> 不能，android中的四大组件都是在主线程中调用的，不能做耗时操作，如果需要耗时操作需要开启子线程。
+
+#### 32.Service生命周期
+
+**只使用startService启动服务的生命周期**
+
+
+
+![img](https:////upload-images.jianshu.io/upload_images/9087029-b3600dabb5f6ae9e.png?imageMogr2/auto-orient/strip|imageView2/2/w/1200/format/webp)
+
+**只使用BindService绑定服务的生命周期**
+
+
+
+![img](https:////upload-images.jianshu.io/upload_images/9087029-32c92a12e147e318.png?imageMogr2/auto-orient/strip|imageView2/2/w/1200/format/webp)
+
+**同时使用startService()启动服务、BindService()绑定服务的生命周期**
+
+
+
+![img](https:////upload-images.jianshu.io/upload_images/9087029-18f941fbe4f34fa2.png?imageMogr2/auto-orient/strip|imageView2/2/w/1200/format/webp)
+
+#### 33.为什么在Service中创建子线程而不是Activity中
+
+> 这是因为Activity很难对Thread进行控制，当Activity被销毁之后，就没有任何其它的办法可以再重新获取到之前创建的子线程的实例。而且在一个Activity中创建的子线程，另一个Activity无法对其进行操作。但是Service就不同了，所有的Activity都可以与Service进行关联，然后可以很方便地操作其中的方法，即使Activity被销毁了，之后只要重新与Service建立关联，就又能够获取到原有的Service中Binder的实例。因此，使用Service来处理后台任务，Activity就可以放心地finish，完全不需要担心无法对后台任务进行控制的情况。
+
+#### 34.目前能否保证service不被杀死
+
+> 1.Service设置成START_STICKY
+>
+> kill 后会被重启（等待5秒左右），重传Intent，保持与重启前一样
+>
+> 2.提升service进程优先级
+>
+> Android中的进程是托管的，当系统进程空间紧张的时候，会依照优先级自动进行进程的回收当service运行在低内存的环境时，将会kill掉一些存在的进程。因此进程的优先级将会很重要，可以在startForeground()使用startForeground()将service放到前台状态。这样在低内存时被kill的几率会低一些。
+>
+> 【结论】如果在极度极度低内存的压力下，该service还是会被kill掉，并且不一定会restart()
+>
+> 3.onDestroy方法里重启serviceservice +broadcast 方式
+>
+> 就是当service走onDestory()的时候，发送一个自定义的广播，当收到广播的时候，重新启动service，也可以直接在onDestroy()里startService
+>
+> 【结论】当使用类似口口管家等第三方应用或是在setting里-应用-强制停止时，APP进程可能就直接被干掉了，onDestroy方法都进不来，所以还是无法保证
+
+#### 35.广播两种注册的区别
+
+> 代码注册，它不是常驻型广播，也就是说广播跟随程序的生命周期，一旦代码所在进程被杀死，广播接收者就失效。清单文件注册是常驻型，也就是说当应用程序关闭后，如果有信息广播来，程序也会被系统调用自动运行。一旦应用程序被部署到手机，广播接收者就会生效，高版本的模拟器（3.2以上）中的接收者，需要启动过一次才能接收到广播。
+
+#### 36.广播为什么不能开启子线程
+
+> 广播接收者也是运行在主线程中，所以在广播接收者的onReceive方法内不能有耗时的操作，需要放在子线程中做，但是onReceive的生命周期很短，有可能广播接收者结束，子线程还没有结束，这时广播接收者所在进程很有可能被杀掉，这样子线程就会出问题，所以耗时操作最好放到service服务中。
+
+#### 37.无序广播和有序广播的特点
+
+> 无序广播
+>
+> 1.无序，无优先级，不可中断，不可传递数据。
+>
+> 2.广播时可设置接收者权限，仅当接收者含有权限才能接收。接收者的也可设置发送方权限，只接收含有权限应用的广播Receiver节点增加属性permission。
+>
+> 3.发送广播时，通过intent.setFlags(intent.flag_include_stopped_pakeages)，包含从未启动过的程序，这样设置，可以让从未启动的接收者也收到广播。
+>
+> 有序广播
+>
+> 1.接收者可以在中定义android:priority定义优先级，数字越大优先级越高，优先级的取值范围是: 1000(最高) ~ -1000(最低)谷歌规定最大是1000，但是他的类型其实是int。系统默认优先级是0，那么想在系统程序之前接收到广播，那么就设置大于0的数，相同优先级下,接收的顺序要看在清单文件中声明注册的顺序。
+>
+> 2.有序广播可以被拦截或添加数据，优先级高的接收者可以拦截优先级低的，使用abortBroadcast方法拦截， 添加数据：通过bundle传递。前面的接收者可以将数据通过setResultExtras(Bundle)方法存放进结果对象，然后传给下一个接收者，下一个接收者通过代码：Bundle bundle =getResultExtras(true))可以获取上一个接收者存入在结果对象中的数据。
+
+#### 38.广播的优先级对无序广播生效吗？
+
+> **生效的，对于无序广播来说，BroadcastReceiver的执行顺序如下：**
+>
+> \1. 所有的动态注册的BroadcastRecevier，会被一起执行，他们执行的顺序是不固定的，由Android的进程调度决定。
+>
+> \2. 当动态注册的BroadcastRecevier被执行完以后，会按照优先级，依次执行静态注册的BroadcastReceiver。
+>
+> 如果广播是无序的，那么所有的registeredReceivers都会一次性被处理，因为所有的动态注册的广播，他们的进程都是活着的，直接让他们去处理就好了。但是这一条对于静态注册的广播不适用。这是因为静态注册的广播，我们无法知道他到底进程是否存活，而如果都不是活着的，需要先把进程拉起来，一次性拉起很多进程，这是性能上无法忍受的。所以静态注册的广播，不能像动态注册的广播那样一次性执行。发送无须广播时候，静态注册的Recevier的执行是这样的，按照receivers队列，依次检查队列里面的Receiver是否存活，如果是活着的，则执行该Recevierd的OnReceiver回调，如果进程尚不存在，则首先创建进程，然后执行BroadcastReceiver的OnRecevier 回调，当一个BroadcastReceiver执行完，再去执行receivers队列里的下一个BroadcastReceiver。而receivers队列是按照优先级排列的。
+
+#### 39.请介绍下ContentProvider是如何实现数据共享的。
+
+> 如果想要访问内容提供器中共享的数据，就一定要借助ContentResolver类，可以通过Context中的getContentResolver（）方法获取到该类的实例。ContentResolver中提供了一系列的方法用于对数据进行CRUD操作，其中insert（）方法用于添加数据，update（）方法用于更新数据，delete（）方法用于删除数据，query（）方法用于查询数据。
+>
+>    内容URI给内容提供器中的数据建立了唯一标识符，它主要由两部分组成：authority和patch。authority是用于对不同的应用程序做区分的，一般为了避免冲突，都会采用程序包名的方式来进行命名。patch是用于对同一应用程序中不同的表做区分的，通常会添加到authority后面。
+
+#### 40.内容提供者如何保证隐私数据不会泄露
+
+> 因为所有的CRUD操作都一定要匹配到UriMatcher相应的内容URI格式才能进行的，而我们当然不可能向UriMatcher中添加隐私数据的URI，所以这部分数据根本无法被外部程序访问到。
+
+#### 41.说说ContentProvider、ContentResolver、ContentObserver 之间的关系；
+
+> ContentProvider是Android的四大组件之一，可见它在Android中的作用非同小可。它主要的作用是：实现各个应用程序之间的（跨应用）数据共享，比如联系人应用中就使用了ContentProvider,你在自己的应用中可以读取和修改联系人的数据，不过需要获得相应的权限。其实它也只是一个中间人，真正的数据源是文件或者SQLite等。
+>
+> 一个应用实现ContentProvider来提供内容给别的应用来操作， 通过ContentResolver来操作别的应用数据，当然在自己的应用中也可以。
+>
+> ContentObserver——内容观察者，目的是观察(捕捉)特定Uri引起的数据库的变化，继而做一些相应的处理，它类似于数据库技术中的触发器(Trigger)，当ContentObserver所观察的Uri发生变化时，便会触发它。触发器分为表触发器、行触发器，相应地ContentObserver也分为“表“ContentObserver、“行”ContentObserver，当然这是与它所监听的Uri MIME Type有关的。
+
+
+
+作者：YoungTa0
+链接：https://www.jianshu.com/p/46774f2f51b1
+来源：简书
+著作权归作者所有。商业转载请联系作者获得授权，非商业转载请注明出处。
