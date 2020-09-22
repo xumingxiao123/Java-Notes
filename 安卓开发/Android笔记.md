@@ -6523,7 +6523,7 @@ public void onReceive(Context context, Intent intent) {
 
 https://www.jianshu.com/p/46774f2f51b1
 
-#### 1.内存泄露总结
+#### 1. 内存泄露总结
 
 > 当某些对象不再被程序所使用，但是这些对象仍然被某些对象所引用着，进而导致垃圾收集器不能及时释放它们。很多情况下是长生命周期引用着短生命周期的对象（而且对象比较大）不释放。
 >
@@ -6545,7 +6545,7 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 > 7.**Handler 造成的内存泄漏**（由于Handler是非静态内部类所以其持有当前Activity的隐式引用，如果Handler没有被释放，其所持有的外部引用也就是Activity也不可能被释放）
 
-#### 2.内存溢出（OOM）
+#### 2. 内存溢出（OOM）
 
 > 避免OOM有以下几种方向：
 >
@@ -6569,7 +6569,7 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 > 4.代码中会需要使用到大量的字符串拼接的操作，这种时候有必要考虑使用StringBuilder来替代频繁的“+”
 
-#### 3..避免加载图片导致OOM
+#### 3. 避免加载图片导致OOM
 
 > **1. 压缩图片**
 >
@@ -6587,7 +6587,7 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 > 因为bitmap是吃内存大户，为了避免应用在分配bitmap内存的时候出现OutOfMemory异常以后Crash掉，对异常进行捕获，如果发生了OOM后，应用不会崩溃，而是得到一个默认的bitmap图。
 
-#### 4.ANR异常总结：
+#### 4. ANR异常总结：
 
 > **1、ANR错误一般有三种类型**
 >
@@ -6613,7 +6613,7 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 >    3.尽量用Handler来处理UIThread和别的Thread之间的交互
 
-#### 5.Binder机制
+#### 5. Binder机制
 
 > ​    **Binder是一种Android实现跨进程通信（IPC）的方式。**在一个进程空间中，分为用户空间和内核空间：进程间，用户空间的数据不可共享，内核空间的数据可以共享，为了保证安全性和独立性，一个进程不能直接访问另一个进程，而Binder就是充当连接两个进程（内核空间）的通道。Binder跨进程机制模型基于Client-Server模式。**Binder框架定义了四个角色：Server,Client,ServiceManager以及Binder驱动**：
 >
@@ -6661,7 +6661,7 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 > Server进程会创建很多线程来处理Binder请求，管理Binder模型的线程是采用Binder驱动的线程池，并由Binder驱动自身进行管理，而不是由Server进程来管理的。一个进程的Binder线程数默认最大是16，超过的请求会被阻塞等待空闲的Binder线程。所以，在进程间通信时处理并发问题时，如使用ContentProvider时，它的CRUD（创建、检索、更新和删除）方法只能同时有16个线程同时工作。
 
-#### 6.AIDL
+#### 6. AIDL
 
 > ​    **AIDL（Android Interface Definition Language,AIDL）是Android的一种接口描述语言**;编译器可以通过aidl文件生成一段代码，通过预先定义的接口达到两个进程内部通信进程的目的（对于小白来说，AIDL的作用是让你可以在自己的APP里绑定一个其他APP的service，这样你的APP可以和其他APP交互）。
 >
@@ -6685,7 +6685,7 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 >    AIDL其实就是通过Binder实现的，因为在我们定义好aidl文件后，studio就帮我们生成了相关的Binder类。事实上我们在使用AIDL时候继承的Stub类，就是studio帮我们生成的Binder类。
 
-#### 7.Handler
+#### 7. Handler
 
 >   Handler是线程通信机制，Handler相关的有四个类：
 >
@@ -6705,7 +6705,7 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 >   在同一线程中肯定会调用一个 Loop.prepare() ，其中就生成一个 MessageQueue .而代码中可以 new 出多个 Handler 发送各自的 Message 到这个 MessageQueue 中，最后调用msg.target.dispatch 中这个target来捕获自己发送的massge，所以明显是 N 个 Handler 对应一个 MessageQueue。
 
-#### 8.Async(A森克)Task
+#### 8. Async(A森克)Task
 
 > AsyncTask是Android提供的一个助手类，它对Thread和Handler进行了封装，方便我们使用。在使用AsyncTask时，我们无需关注Thread和Handler，AsyncTask内部会对其进行管理。
 >
@@ -6725,17 +6725,17 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 > 就会作为参数在主线程中传入到onPostExecute方法中，这样就可以在主线程中根据任务的执行结果更新UI。
 
-#### 9.IntentService
+#### 9. IntentService
 
 > ​    IntentService是继承并处理异步请求的一个类，在IntentService内有一个工作线程来处理耗时操作，启动IntentService的方式和启动传统的Service一样，同时，当任务执行完后，IntentService会自动停止，而不需要我们手动去控制或stopSelf()。
 >
 > ​    我们使用IntentService最起码有两个好处：一方面不需要自己去new Thread了；另一方面不需要考虑在什么时候关闭该Service。
 
-#### 10.Android dvm的进程和Linux的进程, 应用程序的进程是否为同一个概念 
+#### 10. Android dvm的进程和Linux的进程, 应用程序的进程是否为同一个概念 
 
 > DVM指dalivk的虚拟机。每一个Android应用程序都在它自己的进程中运行，都拥有一个独立的Dalvik虚拟机实例。而每一个DVM都是在Linux 中的一个进程，所以说可以认为是同一个概念。
 
-#### 11.Android的几种进程
+#### 11. Android的几种进程
 
 > **1.前台进程：**即与用户正在交互的Activity或者Activity用到的Service等，如果系统内存不足时前台进程是最后被杀死的
 >
@@ -6755,13 +6755,13 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 > 3.Service的onDestroy里面重新启动自己
 
-#### 12.为什么使用服务而不是线程  
+#### 12. 为什么使用服务而不是线程  
 
 >    进程中运行着线程，Android应用程序刚启动都会开启一个进程给这个程序来使用。Android一个应用程序把所有的界面关闭时, 进程这时还没有被销毁,现在处于的是空进程状态,Thread运行在空进程中, 很容易的被销毁了。服务不容易被销毁, 如果非法状态下被销毁了, 系统会在内存够用时,重新启动。
 >
 >   Android系统会尽量保持拥有service的进程运行，只要在该service已经被启动(start)或者客户端连接(bindService)到它。当内存不足时，还会保持，拥有service的进程具有较高的优先级。
 
-#### 13.线程安全问题
+#### 13. 线程安全问题
 
 >    当多个线程同时访问临界资源（一个对象，对象中的属性，一个文件，一个数据库等）时，就可能会产生线程安全问题。基本上所有的并发模式在解决线程安全问题上，都采用“序列化访问临界资源”的方案，即在同一时刻，只能有一个线程访问临界资源，也称同步互斥访问。通常来说，是在访问临界资源的代码前面加上一个锁，当访问完临界资源后释放锁，让其他线程继续访问。
 >
@@ -6769,7 +6769,7 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 >    所谓死锁，就是两个线程都在等待对方先完成，造成程序的停滞，一般程序的死锁都是在程序运行时出现的。
 
-#### 14.线程的状态变化
+#### 14. 线程的状态变化
 
 >  要想实现多线程，必须在主线程中创建新的线程对象。任何线程一般具有5种状态，即创建，就绪，运行，阻塞，终止。下面分别介绍一下这几种状态：
 >
@@ -6793,7 +6793,7 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 > 线程调用 stop() 方法时或 run() 方法执行结束后，即处于死亡状态。处于死亡状态的线程不具有继续运行的能力。
 
-#### 15.Android架构
+#### 15. Android架构
 
 
 
