@@ -383,7 +383,7 @@ public static int getChildMeasureSpec(int spec, int padding, int childDimension)
 }    
 ```
 
-上面的代码有点多，希望你仔细看一些注释，代码写得很多，其实计算原理很简单：
+上面的代码有点多，希望你仔细看一些注释，代码写得很多，其实计算原理很简单!!!!!!：
  1、如果我们在xml 的layout_width或者layout_height 把值都写死，那么上述的测量完全就不需要了，之所以要上面的这步测量，是因为 **match_parent 就是充满父容器，wrap_content 就是自己多大就多大**， 我们写代码的时候特别爽，我们编码方便的时候，google就要帮我们计算你match_parent的时候是多大，wrap_content的是多大，这个计算过程，就是计算出来的父View的MeasureSpec不断往子View传递，结合子View的LayoutParams 一起再算出子View的MeasureSpec，然后继续传给子View，不断计算每个View的MeasureSpec，子View有了MeasureSpec才能更测量自己和自己的子View。
 
 2、上述代码如果这么来理解就简单了
@@ -406,8 +406,7 @@ public static int getChildMeasureSpec(int spec, int padding, int childDimension)
 
 - **如果父View的MeasureSpec 是UNSPECIFIED(未指定),表示没有任何束缚和约束，不像AT_MOST表示最大只能多大，不也像EXACTLY表示父View确定的大小，子View可以得到任意想要的大小，不受约束**
 
-1、如果子View 的layout_xxxx是MATCH_PARENT，因为父View的MeasureSpec是UNSPECIFIED，父View自己的大小并没有任何约束和要求，
- 那么对于子View来说无论是WRAP_CONTENT还是MATCH_PARENT，子View也是没有任何束缚的，想多大就多大，没有不能超过多少的要求，一旦没有任何要求和约束，size的值就没有任何意义了，所以一般都直接设置成0
+1、如果子View 的layout_xxxx是MATCH_PARENT，因为父View的MeasureSpec是UNSPECIFIED，父View自己的大小并没有任何约束和要求，那么对于子View来说无论是WRAP_CONTENT还是MATCH_PARENT，子View也是没有任何束缚的，想多大就多大，没有不能超过多少的要求，一旦没有任何要求和约束，size的值就没有任何意义了，所以一般都直接设置成0
 
 2、同上...
 
@@ -6766,7 +6765,7 @@ https://www.jianshu.com/p/46774f2f51b1
 
 >    当多个线程同时访问临界资源（一个对象，对象中的属性，一个文件，一个数据库等）时，就可能会产生线程安全问题。基本上所有的并发模式在解决线程安全问题上，都采用“序列化访问临界资源”的方案，即在同一时刻，只能有一个线程访问临界资源，也称同步互斥访问。通常来说，是在访问临界资源的代码前面加上一个锁，当访问完临界资源后释放锁，让其他线程继续访问。
 >
->    在Java中，提供了两种方式来实现同步互斥访问：synchronized和Lock。
+>    在Java中，提供了两种方式来实现同步互斥访问：**synchronized和Lock**。
 >
 >    所谓死锁，就是两个线程都在等待对方先完成，造成程序的停滞，一般程序的死锁都是在程序运行时出现的。
 
@@ -6896,19 +6895,19 @@ https://www.jianshu.com/p/46774f2f51b1
 
 #### 20.任务栈
 
-> (1)程序打开时就创建了一个任务栈,用于存储当前程序的activity,所有的activity属于一个任务栈。
+> (1) 程序打开时就创建了一个任务栈,用于存储当前程序的activity,所有的activity属于一个任务栈。
 >
-> (2)一个任务栈包含了一个activity的集合,去有序的选择哪一个activity和用户进行交互:只有在任务栈栈顶的activity才可以跟用户进行交互。
+> (2) 一个任务栈包含了一个activity的集合,去有序的选择哪一个activity和用户进行交互:只有在任务栈栈顶的activity才可以跟用户进行交互。
 >
-> (3)任务栈可以移动到后台, 并且保留了每一个activity的状态.并且有序的给用户列出它们的任务, 而且还不丢失它们状态信息。
+> (3) 任务栈可以移动到后台, 并且保留了每一个activity的状态.并且有序的给用户列出它们的任务, 而且还不丢失它们状态信息。
 >
-> (4)退出应用程序时：当把所有的任务栈中所有的activity清除出栈时,任务栈会被销毁,程序退出。
+> (4) 退出应用程序时：当把所有的任务栈中所有的activity清除出栈时,任务栈会被销毁,程序退出。
 >
 > 任务栈的缺点：
 >
-> (1)每开启一次页面都会在任务栈中添加一个Activity,而只有任务栈中的Activity全部清除出栈时，任务栈被销毁，程序才会退出,这样就造成了用，户体验差, 需要点击多次返回才可以把程序退出了。
+> (1) 每开启一次页面都会在任务栈中添加一个Activity,而只有任务栈中的Activity全部清除出栈时，任务栈被销毁，程序才会退出,这样就造成了用，户体验差, 需要点击多次返回才可以把程序退出了。
 >
-> (2)每开启一次页面都会在任务栈中添加一个Activity还会造成数据冗余,重复数据太多, 会导致内存溢出的问题(OOM)。
+> (2) 每开启一次页面都会在任务栈中添加一个Activity还会造成数据冗余,重复数据太多, 会导致内存溢出的问题(OOM)。
 >
 > 为了解决任务栈产生的问题，Android为Activity设计了启动模式。
 
@@ -6918,7 +6917,7 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 > **singleTop**：可以有多个实例，但是不允许多个相同Activity叠加。即，如果Activity在栈顶的时候，启动相同的Activity，不会创建新的实例，而会调用其onNewIntent方法。
 >
-> **singleTask**：只有一个实例。在同一个应用程序中启动他的时候，若Activity不存在，则会在当前task创建一个新的实例，若存在，则会把task中在其之上的其它Activity destory掉并调用它的onNewIntent方法。
+> **singleTask**：只有一个实例。在同一个应用程序中启动他的时候，若Activity不存在，则会在当前task创建一个新的实例，若存在，则会把task中在其之上的其它Activity destory掉并调用它的**onNewIntent**方法。
 >
 > **singleInstance**：只有一个实例，并且这个实例独立运行在一个task中，这个task只有这个实例，不允许有别的Activity存在。
 >
@@ -6964,7 +6963,7 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 > Activity中还提供了一个onSaveInstanceState()回调方法，这个方法可以保证在活动被回收之前一定会调用，因此我们可以通过这个方法来解决活动被回收时数据得不到保存的问题。
 >
-> ①重写onSaveInstanceState()保存数据
+> ①重写**onSaveInstanceState()**保存数据
 >
 > ②再次开启时从onSaveInstanceState中得到数据
 
@@ -6988,9 +6987,9 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 > 4.递归退出，在打开新的Activity时使用startActivityForResult，然后自己加标志，在onActivityResult中处理，递归关闭。
 
-#### 26.自定义View
+#### 26.自定义View  
 
->  View的绘制有三个过程，measure，layout，draw。自定义View我们大部分只需要重写onMeasure(),onDraw()方法，当然了还得至少重写两个View的构造函数。
+>  **View的绘制有三个过程，measure，layout，draw。自定义View我们大部分只需要重写**onMeasure(),onDraw()方法，当然了还得至少重写两个View的构造函数。
 >
 > Measure()中我们注意的主要有两个类 ViewGroup.LayoutParams （View 自身的布局参数），
 >
@@ -6998,7 +6997,7 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 > 测量模式有三种：
 >
-> EXACTLY：当前的尺寸就是当前View应该取的尺寸
+> EXACTLY（精准的）：当前的尺寸就是当前View应该取的尺寸
 >
 > AT_MOST：当前尺寸是当前View能取的最大尺寸
 >
@@ -7008,7 +7007,7 @@ https://www.jianshu.com/p/46774f2f51b1
 >
 > match_parent—>EXACTLY。怎么理解呢？match_parent就是要利用父View给我们提供的所有剩余空间，而父View剩余空间是确定的，也就是这个测量模式的整数里面存放的尺寸。
 >
-> wrap_content—>AT_MOST。怎么理解：就是我们想要将大小设置为包裹我们的view内容，那么尺寸大小就是父View给我们作为参考的尺寸，只要不超过这个尺寸就可以啦，具体尺寸就根据我们的需求去设定。
+> wrap（ruap）_content—>AT_MOST。怎么理解：就是我们想要将大小设置为包裹我们的view内容，那么尺寸大小就是父View给我们作为参考的尺寸，只要不超过这个尺寸就可以啦，具体尺寸就根据我们的需求去设定。
 >
 > 固定尺寸（如100dp）—>EXACTLY。用户自己指定了尺寸大小，我们就不用再去干涉了，当然是以指定的大小为主啦。
 >
