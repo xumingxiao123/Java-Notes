@@ -9136,9 +9136,7 @@ class BlockingQueue<T> {
 
 1. 栈
 
-是一种**连续储存**的数据结构，具有**先进后出**的性质。
-
-通常的操作有入栈（压栈），出栈和栈顶元素。想要读取栈中的某个元素，就是将其之间的所有元素出栈才能完成。
+是一种**连续储存**的数据结构，具有**先进后出**的性质。通常的操作有入栈（压栈），出栈和栈顶元素。想要读取栈中的某个元素，就是将其之间的所有元素出栈才能完成。
 
 2. 堆
 
@@ -9177,10 +9175,6 @@ class BlockingQueue<T> {
 
 ![在这里插入图片描述](https://img-blog.csdnimg.cn/20181031131455120.png?x-oss-process=image/watermark,type_ZmFuZ3poZW5naGVpdGk,shadow_10,text_aHR0cHM6Ly9ibG9nLmNzZG4ubmV0L3FxXzQxNDk4MjYx,size_16,color_FFFFFF,t_70)
 &i3 < &i2 < &i，证明地址是减小的。
-
-
-
-
 
 ##### [4] 堆内存与内存泄露
 
