@@ -37,7 +37,7 @@ link：https://www.nowcoder.com/discuss/637535?type=2&channel=-1&source_id=discu
 
 - - 怎么判断一个字符串的字符个数，比如说中文
   
-  - Java的异常机制，为什么这么设计，什么时候用什么
+  - Java的异常机制，**为什么这么设计**，什么时候用什么
 
     >https://zhuanlan.zhihu.com/p/93836930
     >
@@ -57,24 +57,74 @@ link：https://www.nowcoder.com/discuss/637535?type=2&channel=-1&source_id=discu
     - concurrentHashMap原理
 
 - - String，StringBuilder，StringBuffer
-  - ArrayList多线程下会有什么问题
+  - ArrayList多线程下会有什么问题?
+  - 为什么说ArrayList是线程不安全的？
+  
+  >https://blog.csdn.net/u012859681/article/details/78206494?utm_medium=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromMachineLearnPai2%7Edefault-1.base&depth_1-utm_source=distribute.pc_relevant.none-task-blog-2%7Edefault%7EBlogCommendFromMachineLearnPai2%7Edefault-1.base
+  
+  >**在多个线程进行add操作时可能会导致elementData数组越界。具体逻辑如下：**
+  >
+  >列表大小为9，即size=9
+  >线程A开始进入add方法，这时它获取到size的值为9，调用ensureCapacityInternal方法进行容量判断。
+  >线程B此时也进入add方法，它获取到size的值也为9，也开始调用ensureCapacityInternal方法。
+  >线程A发现需求大小为10，而elementData的大小就为10，可以容纳。于是它不再扩容，返回。
+  >线程B也发现需求大小为10，也可以容纳，返回。
+  >线程A开始进行设置值操作， elementData[size++] = e 操作。此时size变为10。
+  >线程B也开始进行设置值操作，它尝试设置elementData[10] = e，而elementData没有进行过扩容，它的下标最大为9。于是此时会报出一个数组越界的异常ArrayIndexOutOfBoundsException.
+  >另外第二步 elementData[size++] = e 设置值的操作同样会导致线程不安全。从这儿可以看出，这步操作也不是一个原子操作，它由如下两步操作构成：
+  >
+  >elementData[size] = e;
+  >size = size + 1;
+  >  **在单线程执行这两条代码时没有任何问题，但是当多线程环境下执行时，可能就会发生一个线程的值覆盖另一个线程添加的值，具体逻辑如下：**
+  >
+  >列表大小为0，即size=0
+  >线程A开始添加一个元素，值为A。此时它执行第一条操作，将A放在了elementData下标为0的位置上。
+  >接着线程B刚好也要开始添加一个值为B的元素，且走到了第一步操作。此时线程B获取到size的值依然为0，于是它将B也放在了elementData下标为0的位置上。
+  >线程A开始将size的值增加为1
+  >线程B开始将size的值增加为2
+  >这样线程AB执行完毕后，理想中情况为size为2，elementData下标0的位置为A，下标1的位置为B。而实际情况变成了size为2，elementData下标为0的位置变成了B，下标1的位置上什么都没有。并且后续除非使用set方法修改此位置的值，否则将一直为null，因为size为2，添加元素时会从下标为2的位置上开始。
+  >————————————————
+  >版权声明：本文为CSDN博主「Zorrooooo」的原创文章，遵循CC 4.0 BY-SA版权协议，转载请附上原文出处链接及本声明。
+  >原文链接：https://blog.csdn.net/u012859681/article/details/78206494
+  
   - 内部类持有外部类引用的原理是什么
+  
+    https://blog.csdn.net/qq_26287435/article/details/81809708
+  
   - volatile有什么用，原理是什么
+  
   - 为什么会有StackOverflow，stack的大小是多少
+  
+    https://zhuanlan.zhihu.com/p/148138812
+  
   - 虚拟机
-
+  
 - - - Java虚拟机和Android虚拟机有什么区别
+    
+      https://zhuanlan.zhihu.com/p/30628140
+    
     - Android两种虚拟机有什么区别
+    
+      https://blog.csdn.net/qq_35711549/article/details/88289814
+    
     - 类加载过程
+    
     - 内存模型
+    
     - 四种引用类型
+    
     - class文件格式
+    
     - synchronized底层实现原理
+    
     - synchronized放在普通方法和静态方法上有什么区别
+    
     - synchronized的锁实际是保存在哪里的（对象头）
+    
     - 双亲委派机制，为什么要用双亲委派机制，如何打破双亲委派机制
+    
     - 内存收集整理的[算法]()
-
+  
 - Android
 
 - - Activity
